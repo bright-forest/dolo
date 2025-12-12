@@ -1,10 +1,38 @@
 symbols:
-    exogenous: [y]
-    states: [w]
-    expectations: [mr]
-    poststates: [a]
-    controls: [c]
-    parameters: [β, γ, σ, ρ, r, cbar]
+    # DDSL-style: collections of Backus declarations with human-readable labels.
+    # The quoted YAML keys are *names/labels*; the unquoted tokens (β, w, c, ...) are the symbols
+    # that appear in equations. (WIP: “below the line” symbol coverage comes later.)
+
+    spaces:
+        "arvl_state_space": Xa @def R+
+        "dcsn_state_space": Xv @def R+
+        "cntn_state_space": Xe @def R+
+        "shock_support_space": Y @def R
+        "action_space": A @def R+
+
+    variables:
+        states:
+            "arvl_state": w_pre @in Xa
+            "dcsn_state": w @in Xv
+            "cntn_state": a @in Xe
+
+        controls:
+            "consumption": c @in A
+
+        shocks:
+            "income shock": y @in Y
+
+    parameters:
+        "disc_fac": β @in (0,1)
+        "risk_fac": γ @in R+
+        "shock_var": σ @in R+
+        "shock_mean": μ_w @in R
+        "return_fac": r @in R+
+        "consumption normalizer": cbar @in R+
+
+    constraints:
+        "feas_cons_set": |
+            Gamma: Xv ->> A
 
 
 equations:

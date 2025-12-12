@@ -19,10 +19,54 @@ class SymbolicModel:
             from dolang.symbolic import remove_timing, parse_string, str_expression
 
             symbols = LoosyDict(equivalences=equivalent_symbols)
-            for sg in self.data["symbols"].keys():
-                symbols[sg] = [s.value for s in self.data["symbols"][sg]]
+            # Side-table: symbol token -> {name, decl, group}.
+            symbol_decls = {}
+
+            def _node_value(x):
+                return x.value if hasattr(x, "value") else x
+
+            def _add_from_mapping(group, node):
+                if not hasattr(node, "items"):
+                    return
+                for name, decl in node.items():
+                    decl_s = str(_node_value(decl)).strip()
+                    if not decl_s:
+                        continue
+                    tok = decl_s.split()[0].rstrip(",:")
+                    symbols.setdefault(group, []).append(tok)
+                    # Keep the *first* declaration we see for a given token.
+                    symbol_decls.setdefault(
+                        tok,
+                        {"name": str(_node_value(name)), "decl": decl_s, "group": group},
+                    )
+
+            symroot = self.data.get("symbols", {})
+
+            # Minimal DDSL/ADC nested symbols structure.
+            _add_from_mapping("spaces", symroot.get("spaces", symroot.get("state_spaces")))
+
+            vroot = symroot.get("variables")
+            if hasattr(vroot, "get"):
+                _add_from_mapping("states", vroot.get("states"))
+                _add_from_mapping("controls", vroot.get("controls"))
+                _add_from_mapping("shocks", vroot.get("shocks"))
+
+            _add_from_mapping("parameters", symroot.get("parameters"))
+            _add_from_mapping("constraints", symroot.get("constraints"))
+
+            # --- Fallback: legacy dtcc-style lists --------------------------------
+            for sg in symroot.keys():
+                if sg in symbols or sg in ("variables", "state_spaces"):
+                    continue
+                try:
+                    symbols[sg] = [s.value for s in symroot[sg]]
+                except Exception:
+                    pass
 
             self.__symbols__ = symbols
+            self.__symbol_declarations__ = symbol_decls
+            # Debugger-friendly alias (avoid dunder grouping in IDEs)
+            self.symbol_declarations = symbol_decls
 
             # the following call adds auxiliaries (tricky, isn't it?)
             self.definitions
