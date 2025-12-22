@@ -2,25 +2,27 @@ symbols:
     # DDSL-style: collections of Backus declarations with human-readable labels.
     # The quoted YAML keys are *names/labels*; the unquoted tokens (β, w, c, ...) are the symbols
     # that appear in equations. (WIP: “below the line” symbol coverage comes later.)
+    # 
 
-    spaces:
-        "arvl_state_space": Xa @def R+
-        "dcsn_state_space": Xv @def R+
-        "cntn_state_space": Xe @def R+
-        "shock_support_space": Y @def R
-        "action_space": A @def R+
+symbols:
+    exogenous: [y1,y2,y3] 
+    states: [m] @inR+
+    expectations: [mr]
+    poststates: [a]
+    prestates: [k]
+    controls: [c]
+    parameters: [β, γ, σ, ρ, r, cbar]
 
+math:
     variables:
-        states:
-            "arvl_state": w_pre @in Xa
-            "dcsn_state": w @in Xv
-            "cntn_state": a @in Xe
-
-        controls:
-            "consumption": c @in A
-
-        shocks:
-            "income shock": y @in Y
+        "arvl_state": [k @in R] #Xa becomes [R] over here, and xa becomes [k]. This is baked in DDSL. 
+        "dcsn_state": [m @in R] #Xv becomes [R] over here. This is baked in DDSL. 
+        "cntn_state": [a @in R+] #Xe becomes [R] over here. This is baked in DDSL. 
+        "shck": [y1,y2,y3 @in SHK] #W becomes SH\colon = @IntervalCl....
+        "actn": [c @in R+] #A becomes R+ over here
+    
+    constraints:
+        "feas_cnst": IntervalOpCl(0, m + PDV_NBC) #RHS must be a set with m 
 
     parameters:
         "disc_fac": β @in (0,1)
@@ -29,10 +31,9 @@ symbols:
         "shock_mean": μ_w @in R
         "return_fac": r @in R+
         "consumption normalizer": cbar @in R+
+    spaces:
+        "income_space_blah": SHK @def [{0,1}, @IntervalClCl(\theta_min, \theta_max), @IntervalClCl(\psi_min, \psi_max)] # W in the math
 
-    constraints:
-        "feas_cons_set": |
-            Gamma: Xv ->> A
 
 
 equations:

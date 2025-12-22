@@ -7,8 +7,13 @@ symbols:
    controls: [n, i]
    expectations: [m]
    values: [V]
-   parameters: [beta, sigma, eta, chi, delta, alpha, rho, zbar, sig_z]
+   parameters: 
+   - [beta, sigma, eta, chi, delta, alpha, rho, zbar, sig_z]
    rewards: [u]
+
+   state: [m] # := x{0} -- the argument to V{0}[x{0}]
+   prestate:[k] # := x{-1}
+   poststate:[a] # := x{1}
 
 definitions:
     y[t]: exp(z[t])*k[t]^alpha*n[t]^(1-alpha)
@@ -19,20 +24,26 @@ definitions:
 equations:
 
     arbitrage:
-        - chi*n[t]^eta*c[t]^sigma - w[t]                   | 0.01 <= n[t] <= 1.0
+        - chi*n[t]^eta*c[t]^sigma - w[t]                   | 0.01 <= n[t] <= 1.0  [[n @in IntervalCl ]]
         - 1 - beta*(c[t]/c[t+1])^(sigma)*(1-delta+rk[t+1])  | 0.00 <= i[t] <= 1.0
 
     transition:
         - k[t] = (1-delta)*k[t-1] + i[t-1]
+        - k{1} = (1-delta)*k{0} + i{-2}
 
     value:
         - V[t] = c[t]^(1-sigma)/(1-sigma) - chi*n[t]^(1+eta)/(1+eta) + beta*V[t+1]
+        - V{0} = c^(1-sigma)/(1-sigma) - chi*n^(1+eta)/(1+eta) + beta*V{1}
+        - V{-1} = Expectation[-1][V{0}]
+        
+
 
     felicity:
         - u[t] =  c[t]^(1-sigma)/(1-sigma) - chi*n[t]^(1+eta)/(1+eta)
 
     expectation:
         - m[t] = beta/c[t+1]^sigma*(1-delta+rk[t+1])
+
 
     direct_response:
         - n[t] = ((1-alpha)*exp(z[t])*k[t]^alpha*m[t]/chi)^(1/(eta+alpha))
