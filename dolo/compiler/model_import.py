@@ -3,15 +3,27 @@ import numpy
 from dolo.misc.display import read_file_or_url
 import yaml
 
+from dolang.yaml_nodes import mapping_get, mapping_has
 
-def yaml_import(fname, check=True, check_only=False):
+
+def _scalar_value(x):
+    """Return the plain scalar value from a YAML ScalarNode (or passthrough strings)."""
+    try:
+        import yaml.nodes
+
+        if isinstance(x, yaml.nodes.ScalarNode):
+            return x.value
+    except Exception:
+        pass
+    return x
+
+
+def yaml_import(fname, check=True, check_only=False, compile_functions=True):
 
     txt = read_file_or_url(fname)
 
     try:
         data = yaml.compose(txt)
-        # print(data)
-        # return data
     except Exception as ex:
         print(
             "Error while parsing YAML file. Probable YAML syntax error in file : ",
@@ -19,19 +31,6 @@ def yaml_import(fname, check=True, check_only=False):
         )
         raise ex
 
-    # if check:
-    #     from dolo.linter import lint
-    #     data = ry.load(txt, ry.RoundTripLoader)
-    #     output = lint(data, source=fname)
-    #     if len(output) > 0:
-    #         print(output)
-
-    # if check_only:
-    #     return output
-
-    data["filename"] = fname
-
     from dolo.compiler.model import Model
 
-    return Model(data, check=check)
-    # from dolo.compiler.model import SymbolicModel
+    return Model(data, check=check, filename=fname, compile_functions=compile_functions)
