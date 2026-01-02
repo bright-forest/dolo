@@ -26,7 +26,7 @@ equations:
 
   cntn_to_dcsn_mover:         # Dolo: direct_response_egm (+ expectation integrand)
     Bellman: |                # Dolo: (implicit; value recursion not explicit in horse YAML)
-      V[_dcsn] = max_c{(c[_dcsn]^(1-γ))/(1-γ) + β*V[_cntn]}
+      V[_dcsn] = max_{c}((c[_dcsn]^(1-γ))/(1-γ) + β*V[_cntn])
     InvEuler: |               # Dolo: direct_response_egm (policy update from expected marginal value)
       c[_cntn] = (β*dV[_cntn])^(-1/γ)
     ShadowBellman: |           # Dolo: expectation integrand (RHS)
@@ -34,9 +34,9 @@ equations:
 
   dcsn_to_arvl_mover:         # Dolo: expectation (produces mr)
     Bellman: |                # Dolo: (implicit; value expectation not explicit in horse YAML)
-      V[_arvl] = E_y(V[_dcsn])
+      V[_arvl] = E_{y}(V[_dcsn])
     ShadowBellman: |          # Dolo: expectation output (LHS mr)
-      dV[_arvl] = r * E_y(dV[_dcsn])
+      dV[_arvl] = r * E_{y}(dV[_dcsn])
 
 calibration:
   β: 0.96
