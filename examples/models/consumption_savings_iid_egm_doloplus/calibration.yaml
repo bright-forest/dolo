@@ -1,0 +1,13 @@
+# Calibration bindings for `stage.yaml` (split-file example).
+#
+# This file is intended to be applied *after* loading the syntactic stage.
+# (See spec_0.1c: calibration as a functor.)
+
+calibration:
+  parameters:
+    β: 0.96
+    γ: 4.0
+    ρ: 0.0
+    r: 1.00
+    μ_y: 0.0
+    σ_y: 0.1

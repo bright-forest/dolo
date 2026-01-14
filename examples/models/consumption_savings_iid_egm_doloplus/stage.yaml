@@ -1,0 +1,139 @@
+# Split-file Dolo+ example (spec_0.1c-style):
+# - stage.yaml is a syntactic stage: no numeric calibration, no numeric settings.
+# - numbers live in `calibration.yaml` and `settings.yaml`.
+#
+# This is intended to be *backwards-compatible in spirit* (same model), while
+# moving the declaration surface toward decorator-based `symbols`.
+
+symbols:
+  # Spaces are optional in vanilla Dolo; included here to match Foundations.
+  spaces:
+    Xb: "@def R+"     # prestate assets domain
+    Xw: "@def R+"     # decision wealth domain
+    Xa: "@def R+"     # end-of-period assets domain
+    Y:  "@def R"      # shock support (log income)
+
+  # Dolo+ stage/perch groups (ADC dialect)
+  prestate:
+    b: "@in Xb"
+  exogenous:
+    # Foundations-style: the shock distribution is part of the syntactic declaration.
+    # (Normal(μ_y, σ_y) is a DDSL primitive distribution object.)
+    y:
+      - "@in Y"
+      - "@dist Normal(μ_y, σ_y)"
+  states:
+    w: "@in Xw"
+  poststates:
+    a: "@in Xa"
+  controls:
+    c: "@in R+"
+
+  # Perch value objects (used with perch tags in equations)
+  values:
+    V: "@in R"
+  shadow_value:
+    dV: "@in R+"
+
+  # Economic parameters
+  parameters:
+    β: "@in (0,1)"
+    γ: "@in R+"
+    ρ: "@in R"
+    r: "@in R++"
+    μ_y: "@in R"
+    σ_y: "@in R+"
+
+  # Numerical settings (new vs vanilla Dolo): feed method schemes (grid size/bounds, etc.)
+  settings:
+    n_w: "@in Z+"
+    n_y_nodes: "@in Z+"
+    n_sim: "@in Z+"
+    sim_seed: "@in Z+"
+    w_domain_min: "@in R+"
+    w_domain_max: "@in R+"
+    w_grid_min: "@in R+"
+    w_grid_max: "@in R+"
+
+equations:
+  # v0.1 structural rule: each entry is either a string payload (`| ...`) or a single-level
+  # mapping `{subeq_label: | ...}`; deeper nesting is disallowed in `dialect: adc-stage`.
+  arvl_to_dcsn_transition: |  # Dolo: half_transition.
+    w[_dcsn] = exp(y[_dcsn]) + b[_arvl]*r
+
+  dcsn_to_cntn_transition: |  # Dolo: auxiliary_direct_egm
+    a[_cntn] = w[_dcsn] - c[_dcsn]
+
+  cntn_to_dcsn_transition: |  # Dolo: reverse_state
+    w[_dcsn] = a[_cntn] + c[_dcsn]
+
+  cntn_to_dcsn_mover:         # Dolo: direct_response_egm (+ expectation integrand)
+    Bellman: |                # Dolo: (implicit; value recursion not explicit in horse YAML)
+      V[_dcsn] = max_{c}((c[_dcsn]^(1-γ))/(1-γ) + β*V[_cntn])
+    InvEuler: |               # Dolo: direct_response_egm (policy update from expected marginal value)
+      c[_cntn] = (β*dV[_cntn])^(-1/γ)
+    ShadowBellman: |          # Dolo: expectation integrand (RHS)
+      dV[_dcsn] = (c[_dcsn])^(-γ)
+
+  dcsn_to_arvl_mover:         # Dolo: expectation (produces mr)
+    Bellman: |                # Dolo: (implicit; value expectation not explicit in horse YAML)
+      V[_arvl] = E_{y}(V[_dcsn])
+    ShadowBellman: |          # Dolo: expectation output (LHS mr)
+      dV[_arvl] = r * E_{y}(dV[_dcsn])
+
+# Domain + options are part of the numerical configuration. Here they reference
+# `symbols.settings` names; numeric bindings live in settings.yaml.
+domain:
+  w: [w_domain_min, w_domain_max]
+
+options:
+  grid: !Cartesian
+    orders: [n_w]
+    bounds: [[w_grid_min, w_grid_max]]
+
+dolo_plus:
+  dialect: adc-stage
+  version: 0.1
+  method: egm
+
+  information_timing:
+    shocks:
+      - name: y
+        realized_between_slots: [-1, 0]
+        observed_at_slot: 0
+
+  slot_map:
+    ustate_name: x
+    x[-1]: {group: prestate, tokens: [b]}
+    x[0]:  {group: states, tokens: [w]}
+    x[+1]: {group: poststates, tokens: [a]}
+
+  validation:
+    allow_indexed_tokens: [V, dV, x, c, b, w, a, y]
+    index_aliases:
+      "+1": 1
+      "1": 1
+      "-1": -1
+      "m1": -1
+      "_arvl": -1
+      "_dcsn": 0
+      "_cntn": 1
+    shift_rules:
+      canonical_slot: {c: 0}
+      allow: {c: [_cntn]}
+      disallow: {c: [_arvl]}
+
+  operators:
+    E_y: {over: y, default_location: a}
+
+  equation_symbols:
+    arvl_to_dcsn_transition: g_ad
+    dcsn_to_cntn_transition: g_de
+    cntn_to_dcsn_transition: g_ed
+    cntn_to_dcsn_mover: T_ed
+    dcsn_to_arvl_mover: T_da
+
+  inter_stage_links:
+    lead(x[_arvl]): x[_cntn]
+    lead(V[_arvl]): V[_cntn]
+    lead(dV[_arvl]): dV[_cntn]

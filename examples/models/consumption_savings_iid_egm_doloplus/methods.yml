@@ -1,0 +1,61 @@
+# Methodization choices for the split-file Dolo+ consumption-savings example.
+#
+# Goal: capture the *same numerical-method information* as the original single-file
+# `../consumption_savings_iid_egm_doloplus.yaml`, but expressed in the new methods format:
+#
+# - Old Dolo:
+#   - `dolo_plus.method: egm`
+#   - `options.grid: !Cartesian {orders: [100], bounds: [[0.0, 4.0]]}`
+#   - `domain.w: [0.01, 4.0]`
+#
+# - New (0.1d spirit):
+#   - attach schemes/methods to the **backward Bellman mover**
+#   - treat grid construction as part of the mover’s interpolation/approximation configuration
+#   - numeric values are referenced via `symbols.settings` names and live in `settings.yaml`
+
+stage: consumption_savings_iid_egm_doloplus_split
+
+methods:
+  # Expectation operator instance used in `dcsn_to_arvl_mover`:
+  #   `E_{y}(...)` → operator instance `E_y`
+  - on: E_y
+    schemes:
+      - scheme: expectation
+        method: !gauss-hermite
+        settings:
+          n_nodes: n_y_nodes
+
+  - on: cntn_to_dcsn_mover
+    schemes:
+      # Old: `dolo_plus.method: egm`
+      - scheme: bellman_backward
+        method: !egm
+
+      # Old: `options.grid: !Cartesian {orders, bounds}` (+ `domain.w`)
+      #
+      # Interpretation: in this simple example, we treat grid construction as part of the
+      # mover’s interpolation/approximation configuration (attached to the backward mover).
+      #
+      # Note: Dolo’s interpolation *type* is typically a separate choice (often defaulting
+      # to cubic). We omit it here to match the original YAML, which only specified the grid.
+      - scheme: interpolation
+        method: !Cartesian
+        settings:
+          # Old: `orders: [100]`
+          orders: [n_w]
+
+          # Old: `bounds: [[0.0, 4.0]]`  (1D cartesian grid → 1 bounds row)
+          bounds: [[w_grid_min, w_grid_max]]
+
+          # Old: `domain.w: [0.01, 4.0]`
+          domain: [w_domain_min, w_domain_max]
+
+  # Forward simulation / push-forward (new vs old Dolo; explicit methodization hook).
+  # We target the (possibly derived) forward mover rather than any kernel equation.
+  - on: arvl_to_dcsn_mover
+    schemes:
+      - scheme: simulation
+        method: !monte-carlo
+        settings:
+          n_paths: n_sim
+          seed: sim_seed

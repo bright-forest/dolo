@@ -31,21 +31,109 @@ class SymbolicModel:
     def symbols(self):
 
         if self.__symbols__ is None:
-
+            import yaml.nodes
             from .misc import LoosyDict, equivalent_symbols
             from dolang.symbolic import remove_timing, parse_string, str_expression
 
             symbols_node = mapping_get_required(self.data, "symbols")
             symbols = LoosyDict(equivalences=equivalent_symbols)
+            symbols_math = {}  # Sidecar for decorator ASTs (Dolo+ mode)
+
             for sg, seq in mapping_items(symbols_node):
-                symbols[sg] = [s.value for s in sequence_values(seq)]
+                # Case 1: Legacy list format - symbols.parameters: [β, γ, r]
+                if isinstance(seq, yaml.nodes.SequenceNode):
+                    symbols[sg] = [s.value for s in sequence_values(seq)]
+
+                # Case 2: Decorated mapping format - symbols.parameters: {β: @in (0,1)}
+                elif isinstance(seq, yaml.nodes.MappingNode):
+                    names = []
+                    symbols_math[sg] = {}
+                    for name_node, decor_node in seq.value:
+                        name = name_node.value
+                        names.append(name)
+
+                        # Parse decorator(s) if present
+                        # Handle both single decorator (ScalarNode) and list of decorators (SequenceNode)
+                        if isinstance(decor_node, yaml.nodes.ScalarNode):
+                            raw_decor = decor_node.value if decor_node.value else ""
+                            if raw_decor.startswith("@"):
+                                try:
+                                    from dolang.decorator_parser import parse_decorator
+                                    tree = parse_decorator(raw_decor)
+                                    if tree:
+                                        symbols_math[sg][name] = tree
+                                except ImportError:
+                                    pass
+                        elif isinstance(decor_node, yaml.nodes.SequenceNode):
+                            # List of decorators - store as list of trees
+                            trees = []
+                            for item in decor_node.value:
+                                if isinstance(item, yaml.nodes.ScalarNode):
+                                    raw_decor = item.value if item.value else ""
+                                    if raw_decor.startswith("@"):
+                                        try:
+                                            from dolang.decorator_parser import parse_decorator
+                                            tree = parse_decorator(raw_decor)
+                                            if tree:
+                                                trees.append(tree)
+                                        except ImportError:
+                                            pass
+                            if trees:
+                                # Store first decorator for simple access, full list available
+                                symbols_math[sg][name] = trees[0] if len(trees) == 1 else trees
+
+                    symbols[sg] = names
+
+                else:
+                    # Fallback for other node types
+                    symbols[sg] = [s.value for s in sequence_values(seq)]
 
             self.__symbols__ = symbols
+            self.__symbols_math__ = symbols_math
 
             # the following call adds auxiliaries (tricky, isn't it?)
             self.definitions
 
         return self.__symbols__
+
+    @property
+    def symbols_math(self):
+        """Decorated symbol metadata (Lark ASTs). Empty dict for legacy models."""
+        # Ensure symbols is computed first
+        _ = self.symbols
+        return getattr(self, '__symbols_math__', {})
+
+    # -------------------------------------------------------------------------
+    # Calibration & Settings (spec_0.1c §4.7 - Functor Attachments)
+    # -------------------------------------------------------------------------
+    # These properties return attached calibration/settings from functors.
+    # For SymbolicModel (syntactic stages), these return None until a functor
+    # (calibrate_stage/configure_stage) attaches data.
+    #
+    # Note: Model class overrides `calibration` with its own implementation
+    # that reads from embedded YAML, so this only affects pure SymbolicModel.
+
+    @property
+    def calibration(self):
+        """
+        Attached calibration data (parameters).
+
+        Returns None for syntactic stages (before calibration functor applied).
+        Returns dict after calibrate_stage() is applied.
+
+        Note: Model class overrides this with CalibrationDict from embedded YAML.
+        """
+        return getattr(self, '_calibration', None)
+
+    @property
+    def settings(self):
+        """
+        Attached settings data (numerical settings).
+
+        Returns None for stages without settings.
+        Returns dict after configure_stage() is applied.
+        """
+        return getattr(self, '_settings', None)
 
     @property
     def variables(self):

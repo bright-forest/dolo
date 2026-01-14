@@ -1,0 +1,13 @@
+# Numerical/settings bindings for `stage.yaml` (split-file example).
+#
+# These values feed method schemes (grid size, bounds, etc.) via `symbols.settings`.
+
+settings:
+  n_w: 100
+  n_y_nodes: 9
+  n_sim: 10000
+  sim_seed: 42
+  w_domain_min: 0.01
+  w_domain_max: 4.0
+  w_grid_min: 0.0
+  w_grid_max: 4.0
