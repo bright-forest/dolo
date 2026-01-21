@@ -131,6 +131,24 @@ dtcc:
                 - ['controls',0,'x']
                 - ['parameters', 0, 'p']
 
+        # Control bounds for VFI (spec 0.1e)
+        # Signature: controls_lb(m, s, p) -> [lb_0, lb_1, ...]
+        controls_lb:
+            optional: True
+            recursive: True
+            eqs:
+                - ['exogenous', 0, 'm']
+                - ['states', 0, 's']
+                - ['parameters', 0, 'p']
+
+        # Signature: controls_ub(m, s, p) -> [ub_0, ub_1, ...]
+        controls_ub:
+            optional: True
+            recursive: True
+            eqs:
+                - ['exogenous', 0, 'm']
+                - ['states', 0, 's']
+                - ['parameters', 0, 'p']
 
         arbitrage_exp:
 

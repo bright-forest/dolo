@@ -50,8 +50,18 @@ def value_iteration(
 
     transition = model.functions["transition"]
     felicity = model.functions["felicity"]
-    controls_lb = model.functions["controls_lb"]
-    controls_ub = model.functions["controls_ub"]
+
+    # Use model.x_bounds fallback (spec 0.1e)
+    # Checks controls_lb/ub first, then arbitrage_lb/ub
+    if model.x_bounds is not None:
+        controls_lb, controls_ub = model.x_bounds
+    else:
+        raise ValueError(
+            "VFI requires control bounds. Add ⊥ declarations to value block:\n"
+            "    value: |\n"
+            "        V[t] = u[t] + beta*V[t+1]\n"
+            "        ⊥ 0 <= c[t] <= w[t]"
+        )
 
     parms = model.calibration["parameters"]
     discount = model.calibration["beta"]

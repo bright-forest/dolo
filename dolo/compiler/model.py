@@ -197,6 +197,8 @@ class SymbolicModel:
                     assert v.style == "|"
                     if g in ("arbitrage",):
                         start = "complementarity_block"
+                    elif g in ("value",):
+                        start = "value_block"
                     else:
                         start = "assignment_block"
                     eqs = parse_string(v, start=start)
@@ -233,6 +235,66 @@ class SymbolicModel:
                         if with_complementarity:
                             d[g + "_lb"] = ll_lb
                             d[g + "_ub"] = ll_ub
+                    elif g in ("value",):
+                        # Handle value block with optional ⊥ bound constraints (spec 0.1e)
+                        ll = []  # value equations
+                        ll_lb = []  # bound lower limits
+                        ll_ub = []  # bound upper limits
+                        bound_idx = 0
+                        for eq in eq_list:
+                            if eq.data == "bound_constraint":
+                                # ⊥ lb <= x[t] <= ub
+                                # eq.children[0] is double_inequality
+                                double_ineq = eq.children[0]
+                                lb_expr = str_expression(double_ineq.children[0])
+                                ub_expr = str_expression(double_ineq.children[2])
+                                # Validate bounded variable
+                                bounded_var_node = double_ineq.children[1]
+                                if bounded_var_node.data == "variable":
+                                    var_name = bounded_var_node.children[0].children[0].value
+                                    var_time = int(bounded_var_node.children[1].children[0].value) if bounded_var_node.children[1].data == "date" else 0
+                                elif bounded_var_node.data == "symbol":
+                                    raise Exception(
+                                        f"Bound variable must have time index. "
+                                        f"Found: {bounded_var_node.children[0].value} (no time index). "
+                                        f"Expected: {bounded_var_node.children[0].value}[t]"
+                                    )
+                                else:
+                                    var_name = str_expression(bounded_var_node)
+                                    var_time = 0
+                                # Validate against expected control
+                                if bound_idx < len(self.symbols.get("controls", [])):
+                                    expected_var = self.symbols["controls"][bound_idx]
+                                    if var_name != expected_var:
+                                        raise Exception(
+                                            f"Bound variable mismatch at position {bound_idx}: "
+                                            f"expected {expected_var}[t], found {var_name}[t]"
+                                        )
+                                    if var_time != 0:
+                                        raise Exception(
+                                            f"Bound variable must be at time t (index 0). "
+                                            f"Found: {var_name}[t{'+' if var_time > 0 else ''}{var_time}]. "
+                                            f"Expected: {var_name}[t]"
+                                        )
+                                ll_lb.append(lb_expr)
+                                ll_ub.append(ub_expr)
+                                bound_idx += 1
+                            else:
+                                # Regular equation
+                                ll.append(str_expression(eq))
+                        d[g] = ll
+                        if ll_lb:
+                            # Validate number of bounds matches number of controls
+                            n_controls = len(self.symbols.get("controls", []))
+                            if len(ll_lb) != n_controls:
+                                missing = set(self.symbols.get("controls", [])) - set()
+                                raise Exception(
+                                    f"Number of bounds ({len(ll_lb)}) does not match "
+                                    f"number of controls ({n_controls}). "
+                                    f"Expected bounds for: {self.symbols.get('controls', [])}"
+                                )
+                            d["controls_lb"] = ll_lb
+                            d["controls_ub"] = ll_ub
                     else:
                         # TODO: we should check here that equations are well specified
                         d[g] = [str_expression(e) for e in eq_list]
@@ -240,6 +302,20 @@ class SymbolicModel:
                 elif isinstance(v, yaml.nodes.SequenceNode):
                     eq_list = []
                     for eq_string in sequence_values(v):
+                        # Check for ⊥ in list form - not supported (spec 0.1e)
+                        eq_str = scalar_value(eq_string) if hasattr(eq_string, 'value') else str(eq_string)
+                        if g == "value" and "⊥" in eq_str:
+                            raise Exception(
+                                f"Bound constraints (⊥) must use block scalar syntax.\n"
+                                f"Change:\n"
+                                f"    value:\n"
+                                f"        - V[t] = ...\n"
+                                f"        - ⊥ 0 <= c[t] <= w[t]\n"
+                                f"To:\n"
+                                f"    value: |\n"
+                                f"        V[t] = ...\n"
+                                f"        ⊥ 0 <= c[t] <= w[t]"
+                            )
                         start = "equation"  # it should be assignment
                         eq = parse_string(eq_string, start=start)
                         eq = sanitize(eq, variables=vars)
