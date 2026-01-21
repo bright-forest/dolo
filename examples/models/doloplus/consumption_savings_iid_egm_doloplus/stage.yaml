@@ -5,6 +5,8 @@
 # This is intended to be *backwards-compatible in spirit* (same model), while
 # moving the declaration surface toward decorator-based `symbols`.
 
+name: consumption_savings_iid_egm_doloplus
+
 symbols:
   # Spaces are optional in vanilla Dolo; included here to match Foundations.
   spaces:
@@ -32,7 +34,7 @@ symbols:
   # Perch value objects (used with perch tags in equations)
   values:
     V: "@in R"
-  Marginal_value:
+  shadow_value:
     dV: "@in R+"
 
   # Economic parameters
@@ -59,26 +61,24 @@ equations:
   # v0.1 structural rule: each entry is either a string payload (`| ...`) or a single-level
   # mapping `{subeq_label: | ...}`; deeper nesting is disallowed in `dialect: adc-stage`.
   arvl_to_dcsn_transition: |  # Dolo: half_transition.
-    w = exp(y) + b*r
+    w[_dcsn] = exp(y[_dcsn]) + b[_arvl]*r
 
   dcsn_to_cntn_transition: |  # Dolo: auxiliary_direct_egm --> in DDSL-CORE is "define g_ve as w,c \mapsto a, via the following"
-    a = w - c               # interpreted by DDSL-CORE as a[_dcsn] = g_ve[x_dcsn] = w - c[_dcsn]; AAS: we usually use g_ve to refer to a_fn
-                            # x_cntn = x_dcsn - c[_dcsn]
+    a[_cntn] = w[_dcsn] - c[_dcsn]
   cntn_to_dcsn_transition: |  # Dolo: reverse_state
-    w[_cntn] = a + c[_cntn] # akshay needs to think about this. 
+    w[_dcsn] = a[_cntn] + c[_cntn]
 
-
-  cntn_to_dcsn_opr:         # Dolo: direct_response_egm (+ expectation integrand)
-    Bellman: |                # Dolo: (implicit; value recursion not explicit in horse YAML)
-      V[_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V[_cntn]) # interpreted by DDSL-CORE as V_dcsn = V_fn_dcsn[x_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V_fn_cntn[x_cntn]); AAS: we usually use V_fn_dcsn to refer to V_dcsn_fn
-    InvEuler: |               # Dolo: direct_response_egm (policy update from expected marginal value)
-      c[_cntn] = (β*dV[_cntn])^(-1/γ) # interpreted by DDSL-CORE as c_fn_cntn[x_cntn] = (β*dV_fn_cntn[x_cntn])^(-1/γ); AAS: we usually use c_fn_cntn to refer to c_cntn_fn
-    MarginalBellman: |          # Dolo: expectation integrand (RHS)
+  cntn_to_dcsn_mover:         # Dolo: direct_response_egm (+ expectation integrand)
+    Bellman: |
+      V[_dcsn] = max_{c}((c[_dcsn]^(1-γ))/(1-γ) + β*V[_cntn])
+    InvEuler: |
+      c[_cntn] = (β*dV[_cntn])^(-1/γ)
+    ShadowBellman: |
       dV[_dcsn] = (c[_dcsn])^(-γ)
 
-  dcsn_to_arvl_opr:         # Dolo: expectation (produces mr)
-    Bellman: |                # Dolo: (implicit; value expectation not explicit in horse YAML)
+  dcsn_to_arvl_mover:         # Dolo: expectation (produces mr)
+    Bellman: |
       V[_arvl] = E_{y}(V[_dcsn])
-    MarginalBellman: |          # Dolo: expectation output (LHS mr)
+    ShadowBellman: |
       dV[_arvl] = r * E_{y}(dV[_dcsn])
 
