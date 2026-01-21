@@ -1,0 +1,39 @@
+# Numerical Settings for Housing Owner Model
+# ===========================================
+# Grid parameters from Fella (2014).
+
+settings:
+  # Asset grid
+  n_a: 200
+  a_min: 1.0e-8
+  a_max: 40.0
+
+  # Housing grid (discrete)
+  n_H: 7
+  H_min: 0.0
+  H_max: 5.0
+
+  # Cash-on-hand grid
+  n_w: 200
+  w_min: 1.0e-8
+  w_max: 40.0
+
+  # Income shock grid
+  n_y: 49
+
+  # Solver settings
+  tol: 1.0e-6
+  max_iter: 4000
+
+  # Upper-envelope settings (keyed by method)
+  # This mirrors the FUES pattern:
+  #   ue_method = model.methods["upper_envelope"]
+  #   ue_kwargs = settings["ue_kwargs"].get(ue_method, {})
+  # with optional shared defaults under `common`.
+  ue_kwargs:
+    common:
+      m_bar: 1.0001
+      lb: 10
+    FUES:
+      include_intersections: true
+      no_double_jumps: true

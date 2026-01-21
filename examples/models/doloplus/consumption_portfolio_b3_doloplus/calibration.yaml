@@ -1,0 +1,18 @@
+# Calibration bindings for the two-stage B3 sketch.
+
+calibration:
+  parameters:
+    β: 0.96
+    γ: 4.0
+
+    # Risk-free gross return
+    Rf: 1.01
+
+    # Income shock (log income)
+    μ_y: 0.0
+    σ_y: 0.10
+
+    # Risky return shock (gross return factor, placeholder)
+    μ_Risky: 0.0
+    σ_Risky: 0.20
+

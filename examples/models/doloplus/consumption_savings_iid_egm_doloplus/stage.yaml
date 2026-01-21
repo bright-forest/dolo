@@ -32,7 +32,7 @@ symbols:
   # Perch value objects (used with perch tags in equations)
   values:
     V: "@in R"
-  shadow_value:
+  Marginal_value:
     dV: "@in R+"
 
   # Economic parameters
@@ -59,81 +59,26 @@ equations:
   # v0.1 structural rule: each entry is either a string payload (`| ...`) or a single-level
   # mapping `{subeq_label: | ...}`; deeper nesting is disallowed in `dialect: adc-stage`.
   arvl_to_dcsn_transition: |  # Dolo: half_transition.
-    w[_dcsn] = exp(y[_dcsn]) + b[_arvl]*r
+    w = exp(y) + b*r
 
-  dcsn_to_cntn_transition: |  # Dolo: auxiliary_direct_egm
-    a[_cntn] = w[_dcsn] - c[_dcsn]
-
+  dcsn_to_cntn_transition: |  # Dolo: auxiliary_direct_egm --> in DDSL-CORE is "define g_ve as w,c \mapsto a, via the following"
+    a = w - c               # interpreted by DDSL-CORE as a[_dcsn] = g_ve[x_dcsn] = w - c[_dcsn]; AAS: we usually use g_ve to refer to a_fn
+                            # x_cntn = x_dcsn - c[_dcsn]
   cntn_to_dcsn_transition: |  # Dolo: reverse_state
-    w[_dcsn] = a[_cntn] + c[_dcsn]
+    w[_cntn] = a + c[_cntn] # akshay needs to think about this. 
 
-  cntn_to_dcsn_mover:         # Dolo: direct_response_egm (+ expectation integrand)
+
+  cntn_to_dcsn_opr:         # Dolo: direct_response_egm (+ expectation integrand)
     Bellman: |                # Dolo: (implicit; value recursion not explicit in horse YAML)
-      V[_dcsn] = max_{c}((c[_dcsn]^(1-γ))/(1-γ) + β*V[_cntn])
+      V[_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V[_cntn]) # interpreted by DDSL-CORE as V_dcsn = V_fn_dcsn[x_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V_fn_cntn[x_cntn]); AAS: we usually use V_fn_dcsn to refer to V_dcsn_fn
     InvEuler: |               # Dolo: direct_response_egm (policy update from expected marginal value)
-      c[_cntn] = (β*dV[_cntn])^(-1/γ)
-    ShadowBellman: |          # Dolo: expectation integrand (RHS)
+      c[_cntn] = (β*dV[_cntn])^(-1/γ) # interpreted by DDSL-CORE as c_fn_cntn[x_cntn] = (β*dV_fn_cntn[x_cntn])^(-1/γ); AAS: we usually use c_fn_cntn to refer to c_cntn_fn
+    MarginalBellman: |          # Dolo: expectation integrand (RHS)
       dV[_dcsn] = (c[_dcsn])^(-γ)
 
-  dcsn_to_arvl_mover:         # Dolo: expectation (produces mr)
+  dcsn_to_arvl_opr:         # Dolo: expectation (produces mr)
     Bellman: |                # Dolo: (implicit; value expectation not explicit in horse YAML)
       V[_arvl] = E_{y}(V[_dcsn])
-    ShadowBellman: |          # Dolo: expectation output (LHS mr)
+    MarginalBellman: |          # Dolo: expectation output (LHS mr)
       dV[_arvl] = r * E_{y}(dV[_dcsn])
 
-# Domain + options are part of the numerical configuration. Here they reference
-# `symbols.settings` names; numeric bindings live in settings.yaml.
-domain:
-  w: [w_domain_min, w_domain_max]
-
-options:
-  grid: !Cartesian
-    orders: [n_w]
-    bounds: [[w_grid_min, w_grid_max]]
-
-dolo_plus:
-  dialect: adc-stage
-  version: 0.1
-  method: egm
-
-  information_timing:
-    shocks:
-      - name: y
-        realized_between_slots: [-1, 0]
-        observed_at_slot: 0
-
-  slot_map:
-    ustate_name: x
-    x[-1]: {group: prestate, tokens: [b]}
-    x[0]:  {group: states, tokens: [w]}
-    x[+1]: {group: poststates, tokens: [a]}
-
-  validation:
-    allow_indexed_tokens: [V, dV, x, c, b, w, a, y]
-    index_aliases:
-      "+1": 1
-      "1": 1
-      "-1": -1
-      "m1": -1
-      "_arvl": -1
-      "_dcsn": 0
-      "_cntn": 1
-    shift_rules:
-      canonical_slot: {c: 0}
-      allow: {c: [_cntn]}
-      disallow: {c: [_arvl]}
-
-  operators:
-    E_y: {over: y, default_location: a}
-
-  equation_symbols:
-    arvl_to_dcsn_transition: g_ad
-    dcsn_to_cntn_transition: g_de
-    cntn_to_dcsn_transition: g_ed
-    cntn_to_dcsn_mover: T_ed
-    dcsn_to_arvl_mover: T_da
-
-  inter_stage_links:
-    lead(x[_arvl]): x[_cntn]
-    lead(V[_arvl]): V[_cntn]
-    lead(dV[_arvl]): dV[_cntn]

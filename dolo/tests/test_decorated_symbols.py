@@ -115,7 +115,6 @@ calibration:
     assert beta_tree is not None
     assert beta_tree.data == 'start'
 
-
 def test_mixed_symbols_format(temp_yaml_file):
     """Mix of legacy list and decorated mapping formats."""
     yaml_content = """

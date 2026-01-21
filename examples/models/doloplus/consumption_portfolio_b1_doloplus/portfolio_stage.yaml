@@ -1,0 +1,64 @@
+# Portfolio stage (B1): choose risky share, but do NOT apply the RoR shock here.
+#
+# Output is (b, sigma), so the continuation value can be viewed as V_cntn(b, sigma).
+# The realized return shock R is handled in the subsequent consumption stage.
+
+symbols:
+  spaces:
+    Xa: "@def R+"         # assets to invest (from the consumption stage)
+    Xb: "@def R+"         # bank balance carried forward (renaming of assets)
+    Π:  "@def [0,1]"      # share space
+
+  prestate:
+    a: "@in Xa"
+
+  states:
+    k: "@in Xa"
+
+  controls:
+    s: "@in Π"            # share choice
+
+  poststates:
+    b: "@in Xb"
+    sigma: "@in Π"        # carried to the next consumption stage
+
+  values:
+    V: "@in R"
+
+equations:
+  arvl_to_dcsn_transition: |
+    k[_dcsn] = a[_arvl]
+
+  dcsn_to_cntn_transition: |
+    b[_cntn] = k[_dcsn]
+    sigma[_cntn] = s[_dcsn]
+
+  cntn_to_dcsn_mover:
+    Bellman: |
+      V[_dcsn] = max_{s}(V[_cntn])
+
+  dcsn_to_arvl_mover:
+    Bellman: |
+      V[_arvl] = V[_dcsn]
+
+dolo_plus:
+  dialect: adc-stage
+  version: 0.1
+
+  slot_map:
+    ustate_name: x
+    x[-1]: {group: prestate, tokens: [a]}
+    x[0]:  {group: states, tokens: [k]}
+    x[+1]: {group: poststates, tokens: [b, sigma]}
+
+  validation:
+    allow_indexed_tokens: [V, x, a, k, s, b, sigma]
+    index_aliases:
+      "+1": 1
+      "1": 1
+      "-1": -1
+      "m1": -1
+      "_arvl": -1
+      "_dcsn": 0
+      "_cntn": 1
+

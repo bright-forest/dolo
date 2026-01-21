@@ -56,6 +56,8 @@ class SymbolicModel:
                         # Handle both single decorator (ScalarNode) and list of decorators (SequenceNode)
                         if isinstance(decor_node, yaml.nodes.ScalarNode):
                             raw_decor = decor_node.value if decor_node.value else ""
+                            raw_decor = raw_decor.strip()
+
                             if raw_decor.startswith("@"):
                                 try:
                                     from dolang.decorator_parser import parse_decorator
@@ -134,6 +136,34 @@ class SymbolicModel:
         Returns dict after configure_stage() is applied.
         """
         return getattr(self, '_settings', None)
+
+    # -------------------------------------------------------------------------
+    # Methods (spec_0.1d - Methodization Functor Attachment)
+    # -------------------------------------------------------------------------
+
+    @property
+    def methods(self):
+        """
+        Attached methodization data (numerical method schemes).
+
+        Returns None for stages without methodization.
+        Returns dict {target: entry} after methodize() is applied.
+
+        Each entry has:
+          - 'on': target label
+          - 'schemes': list of scheme blocks
+        """
+        return getattr(self, '_methods', None)
+
+    @property
+    def methods_list(self):
+        """
+        Attached methodization data as ordered list.
+
+        Returns None for stages without methodization.
+        Returns list of entries (stable order) after methodize() is applied.
+        """
+        return getattr(self, '_methods_list', None)
 
     @property
     def variables(self):

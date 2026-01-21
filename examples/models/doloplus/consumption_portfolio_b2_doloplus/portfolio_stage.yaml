@@ -1,0 +1,53 @@
+# Portfolio stage (B2): choose risky share and apply RoR shock inside the stage.
+#
+# Post-decision shock R is realized between decision and continuation.
+# Continuation state is bank balance b, so V_cntn = V_cntn(b).
+
+symbols:
+  spaces:
+    Xa: "@def R+"         # assets to invest (from the consumption stage)
+    Xk: "@def R+"
+    Xb: "@def R+"         # bank balance after returns
+    XR: "@def R++"        # risky gross return factor support
+    Π:  "@def [0,1]"      # share space
+
+  prestate:
+    a: "@in Xa"
+
+  exogenous:
+    Risky:
+      - "@in XR"
+      - "@dist LogNormal(μ_Risky, σ_Risky)"
+
+  states:
+    k: "@in Xk"
+
+  controls:
+    shr: "@in Π"
+
+  poststates:
+    b: "@in Xb"
+
+  values:
+    V: "@in R"
+
+  parameters:
+    Rf: "@in R++"
+    μ_Risky: "@in R"
+    σ_Risky: "@in R+"
+
+equations:
+  arvl_to_dcsn_transition: |
+    k = a
+
+  dcsn_to_cntn_transition: |
+    b = k*(shr[_dcsn]*Risky + (1-shr[_dcsn])*Rf)
+
+  cntn_to_dcsn_mover:
+    Bellman: |
+      V[_dcsn] = max_{shr}(E_{Risky}(V[_cntn]))
+
+  dcsn_to_arvl_mover:
+    Bellman: |
+      V[_arvl] = V[_dcsn]
+

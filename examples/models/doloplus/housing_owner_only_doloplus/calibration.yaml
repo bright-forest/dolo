@@ -1,0 +1,23 @@
+# Calibration for Housing Owner Model
+# ====================================
+# Parameter values from Fella (2014) housing model.
+
+calibration:
+  parameters:
+    # Shared parameters
+    beta: 0.93        # discount factor
+    r: 0.06           # interest rate
+
+    # Housing stage parameters
+    phi: 0.07         # housing transaction cost (7%)
+
+    # Consumption stage parameters
+    gamma: 2.0        # CRRA coefficient (risk aversion)
+    theta: 0.77       # consumption weight in utility (alpha)
+    kappa: 0.075      # housing service scaling factor
+    iota: 0.01        # housing service constant
+
+  # Income shock process (discrete Markov)
+  exogenous:
+    Pi: !include Pi_matrix.yaml       # Transition matrix (49x49)
+    z_vals: !include z_vals.yaml      # Shock values (49 states)

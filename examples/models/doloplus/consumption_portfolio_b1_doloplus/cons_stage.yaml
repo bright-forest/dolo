@@ -1,0 +1,130 @@
+# Consumption stage (B1): EGM-style, with income shock y and RoR shock R.
+#
+# Key feature of B1: the portfolio share `sigma` is a prestate carried into this stage,
+# and the realized return shock `R` is observed before choosing consumption.
+
+symbols:
+  spaces:
+    Xb: "@def R+"         # bank balance entering the stage
+    Xw: "@def R+"         # decision resources
+    Xa: "@def R+"         # end-of-stage assets (savings)
+    Y:  "@def R"          # log-income shock support
+    XR: "@def R++"        # risky gross return factor support
+    Π:  "@def [0,1]"      # portfolio share space
+
+  prestate:
+    b: "@in Xb"
+    sigma: "@in Π"        # carried in from the portfolio stage (previous step)
+
+  exogenous:
+    y:
+      - "@in Y"
+      - "@dist Normal(μ_y, σ_y)"
+    R:
+      - "@in XR"
+      - "@dist LogNormal(μ_R, σ_R)"
+
+  states:
+    w: "@in Xw"
+
+  poststates:
+    a: "@in Xa"
+
+  controls:
+    c: "@in R+"
+
+  values:
+    V: "@in R"
+
+  shadow_value:
+    dV: "@in R+"
+
+  parameters:
+    β: "@in (0,1)"
+    γ: "@in R+"
+    Rf: "@in R++"
+    μ_y: "@in R"
+    σ_y: "@in R+"
+    μ_R: "@in R"
+    σ_R: "@in R+"
+
+  settings:
+    n_w: "@in Z+"
+    n_y_nodes: "@in Z+"
+    n_R_nodes: "@in Z+"
+    w_domain_min: "@in R+"
+    w_domain_max: "@in R+"
+    w_grid_min: "@in R+"
+    w_grid_max: "@in R+"
+
+equations:
+  arvl_to_dcsn_transition: |
+    w[_dcsn] = exp(y[_dcsn]) + b[_arvl]*(sigma[_arvl]*R[_dcsn] + (1-sigma[_arvl])*Rf)
+
+  dcsn_to_cntn_transition: |
+    a[_cntn] = w[_dcsn] - c[_dcsn]
+
+  cntn_to_dcsn_transition: |
+    w[_dcsn] = a[_cntn] + c[_dcsn]
+
+  cntn_to_dcsn_mover:
+    Bellman: |
+      V[_dcsn] = max_{c}((c[_dcsn]^(1-γ))/(1-γ) + β*V[_cntn])
+    InvEuler: |
+      c[_cntn] = (β*dV[_cntn])^(-1/γ)
+    ShadowBellman: |
+      dV[_dcsn] = (c[_dcsn])^(-γ)
+
+  dcsn_to_arvl_mover:
+    Bellman: |
+      V[_arvl] = E_{y}(E_{R}(V[_dcsn]))
+    ShadowBellman: |
+      dV[_arvl] = E_{y}(E_{R}((sigma[_arvl]*R[_dcsn] + (1-sigma[_arvl])*Rf)*dV[_dcsn]))
+
+domain:
+  w: [w_domain_min, w_domain_max]
+
+options:
+  grid: !Cartesian
+    orders: [n_w]
+    bounds: [[w_grid_min, w_grid_max]]
+
+dolo_plus:
+  dialect: adc-stage
+  version: 0.1
+  method: egm
+
+  information_timing:
+    shocks:
+      - name: y
+        realized_between_slots: [-1, 0]
+        observed_at_slot: 0
+      - name: R
+        realized_between_slots: [-1, 0]
+        observed_at_slot: 0
+
+  slot_map:
+    ustate_name: x
+    x[-1]: {group: prestate, tokens: [b, sigma]}
+    x[0]:  {group: states, tokens: [w]}
+    x[+1]: {group: poststates, tokens: [a]}
+
+  validation:
+    allow_indexed_tokens: [V, dV, x, c, b, sigma, w, a, y, R]
+    index_aliases:
+      "+1": 1
+      "1": 1
+      "-1": -1
+      "m1": -1
+      "_arvl": -1
+      "_dcsn": 0
+      "_cntn": 1
+    shift_rules:
+      canonical_slot: {c: 0}
+      allow: {c: [_cntn]}
+      disallow: {c: [_arvl]}
+
+  operators:
+    E_y: {over: y, default_location: a}
+    E_R: {over: R, default_location: a}
+
