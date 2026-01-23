@@ -1,0 +1,219 @@
+# =============================================================================
+# portfolio_port-with-shocks.yaml
+# =============================================================================
+#
+# Standalone portfolio choice problem implementing the "port" stage from the
+# port-with-shocks architecture (unified_modular-examples-using-port-with-shocks.md)
+#
+# =============================================================================
+# STAGE STRUCTURE: port (k → m)
+# =============================================================================
+#
+# This is a standalone portfolio stage that can be composed with other stages
+# (e.g., cons) to form complete periods like port-cons_period.
+#
+# KEY FEATURE: Post-Decision Shock Timing
+# ---------------------------------------
+# Unlike standard (pre-decision) timing where shocks realize before choice,
+# the port-with-shocks architecture has shocks realize AFTER the choice:
+#
+#   Standard:     𝒱(k) = E_ζ[max_ς {β ℰ(m)}]      ← E outside max
+#   port-w-shocks: 𝒱(k) = max_ς E_ζ[β ℰ(m)]       ← E inside max
+#
+# This enables joint specification of correlated shocks (return + income).
+#
+# =============================================================================
+# ROSETTA STONE: Theory ↔ dolo Mapping
+# =============================================================================
+#
+# State Spaces (unified theory Section: RECURSIVE PROBLEM DEFINITION)
+# | Theory          | dolo          | Description                           |
+# |-----------------|---------------|---------------------------------------|
+# | 𝓧ₐ = ℝ₊₊        | states: [k]   | Arrival state space                   |
+# | 𝓧ᵥ = ℝ₊₊        | (same as xₐ)  | Decision state space (gₐᵥ = identity) |
+# | 𝓧ₑ = ℝ₊₊        | (computed m)  | Continuation state space              |
+#
+# State Variables (unified theory: port stage Rosetta Stone table)
+# | Theory     | dolo        | Description                              |
+# |------------|-------------|------------------------------------------|
+# | xₐ = k     | k           | Kapital: investable assets at arrival    |
+# | xᵥ = k     | k           | Decision state (= arrival, no pre-shock) |
+# | xₑ = m     | m (derived) | Market resources after shocks            |
+#
+# Choice Variables
+# | Theory     | dolo        | Description                              |
+# |------------|-------------|------------------------------------------|
+# | 𝜋 = ς      | varsigma    | Portfolio share in risky asset, ς ∈ [0,1]|
+# | Π = [0,1]  | bounds      | Choice set (state-independent)           |
+#
+# Shock Variables (𝒵 in theory; both realize post-decision)
+# | Theory     | dolo        | Description                              |
+# |------------|-------------|------------------------------------------|
+# | Ψ          | psi         | Risky gross return (lognormal)           |
+# | θ          | theta       | Transitory income shock (lognormal)      |
+# | ζ = (Ψ,θ)  | (ln_psi,    | Joint shock vector                       |
+# |            |  ln_theta)  | (log-space for Normal specification)     |
+#
+# Parameters (𝔭 in theory)
+# | Theory     | dolo        | Description                              |
+# |------------|-------------|------------------------------------------|
+# | R          | R           | Risk-free gross return                   |
+# | E[Ψ]       | exp(mu_psi) | Expected risky gross return              |
+# | σ_Ψ        | sigma_psi   | Std dev of log(Ψ)                        |
+# | σ_θ        | sigma_theta | Std dev of log(θ)                        |
+# | ρ          | rho         | Relative risk aversion (CRRA)            |
+# | β          | beta        | Discount factor                          |
+#
+# =============================================================================
+# TRANSITION FUNCTIONS (unified theory: Theoretical Propositions)
+# =============================================================================
+#
+# Within-Stage Perch Transitions:
+#
+# 1. Arrival → Decision (gₐᵥ): xᵥ = gₐᵥ(xₐ) = k  [identity, no pre-decision shock]
+#    - In dolo: state k persists from arrival to decision
+#
+# 2. Decision → Continuation (gᵥₑ): xₑ = gᵥₑ(xᵥ, 𝜋, ζ)
+#    - Theory:  m = k(ς Ψ + (1-ς) R) + θ
+#    - dolo:    k[t+1] = k[t](varsigma[t] * psi[t+1] + (1-varsigma[t]) * R) + theta[t+1]
+#    - Note: In standalone mode, m becomes k for next "period" (connector k' = m)
+#
+# =============================================================================
+# VALUE FUNCTIONS (unified theory: Recursive Problem Definition)
+# =============================================================================
+#
+# port stage has:
+#   - r(xᵥ, 𝜋) = 0          (no immediate reward; pure portfolio choice)
+#   - β(xᵥ) = 1             (no within-stage discounting)
+#   - ℰ(xₑ) = ℰ(m)          (continuation value from next stage/period)
+#
+# Value function (post-decision shock timing):
+#   𝒱(k) = max_{ς ∈ [0,1]} E_{Ψ,θ}[β ℰ(m)]
+#        = max_{ς ∈ [0,1]} E_{Ψ,θ}[β ℰ(k(ς Ψ + (1-ς) R) + θ)]
+#
+# For standalone one-period problem with terminal utility:
+#   ℰ(m) = u(m) = m^(1-ρ)/(1-ρ)
+#   𝒱(k) = max_{ς ∈ [0,1]} E_{Ψ,θ}[u(k(ς Ψ + (1-ς) R) + θ)]
+#
+# =============================================================================
+# FIRST-ORDER CONDITIONS (unified theory: Value Function Solution Approaches)
+# =============================================================================
+#
+# Interior FOC (when ς ∈ (0,1)):
+#   ∂E[ℰ(m)]/∂ς = 0
+#   E[ℰ'(m) × k × (Ψ - R)] = 0
+#
+# Arbitrage condition:
+#   E[ℰ'(m) × Ψ] = R × E[ℰ'(m)]
+#
+# With CRRA continuation value (ℰ'(m) = m^(-ρ)):
+#   E[m^(-ρ) × (Ψ - R)] = 0
+#
+# In dolo syntax:
+#   (k[t+1])^(-rho) * (psi[t+1] - R) = 0  [in expectation]
+#
+# =============================================================================
+# MERTON-SAMUELSON BENCHMARK
+# =============================================================================
+#
+# Without income shock (θ = 0), the classic result gives:
+#   ς* = (E[Ψ] - R) / (ρ × Var(Ψ))
+#
+# With income shocks, the formula changes because:
+#   - Income floor θ provides insurance against portfolio losses
+#   - Poor agents (low k) can afford more portfolio risk
+#   - Rich agents (high k) approach the Merton-Samuelson limit
+#
+# Calibration for ς* ≈ 0.5 at k=1.0:
+#   Without income: ρ ≈ 5
+#   With income:    ρ ≈ 10
+#
+# =============================================================================
+
+name: portfolio_port_with_shocks
+
+symbols:
+    # Exogenous shocks: joint (Ψ, θ) specified in log-space for Normal distribution
+    # Theory: 𝒵 = {(Ψ,θ): joint lognormal} with 𝒵ₐᵥ trivial, 𝒵ᵥₑ non-trivial
+    exogenous: [ln_psi, ln_theta]
+    
+    # State variable: kapital (investable assets)
+    # Theory: xₐ = xᵥ = k ∈ 𝓧ₐ = 𝓧ᵥ = ℝ₊₊
+    states: [k]
+    
+    # Control variable: portfolio share in risky asset
+    # Theory: 𝜋 = ς ∈ Π = [0,1]
+    controls: [varsigma]
+    
+    # Parameters: 𝔭 = (β, ρ, R, σ_Ψ, μ_Ψ, σ_θ)
+    parameters: [beta, rho, R, sigma_psi, mu_psi, sigma_theta]
+
+definitions:
+    # Transform log-shocks to level shocks (mean-corrected for lognormal)
+    # Theory: Ψ is risky gross return with E[Ψ] = exp(μ_Ψ)
+    psi[t]: exp(ln_psi[t] + mu_psi - sigma_psi^2/2)
+    # Theory: θ is transitory income shock with E[θ] = 1
+    theta[t]: exp(ln_theta[t] - sigma_theta^2/2)
+    # Portfolio gross return: R_port = ς Ψ + (1-ς) R
+    Rport[t]: varsigma[t] * psi[t] + (1 - varsigma[t]) * R
+
+equations:
+
+    # TRANSITION: xₑ = gᵥₑ(xᵥ, 𝜋, ζ)
+    # Theory: m = k(ς Ψ + (1-ς) R) + θ
+    # In standalone mode, continuation m becomes next period's arrival k
+    # Connector: k_{t+1} = m_t (identity relabeling)
+    transition:
+        - k[t] = k[t-1] * (varsigma[t-1] * exp(ln_psi[t] + mu_psi - sigma_psi^2/2) + (1 - varsigma[t-1]) * R) + exp(ln_theta[t] - sigma_theta^2/2)
+
+    # ARBITRAGE: FOC for portfolio choice
+    # Theory: E[ℰ'(m) × (Ψ - R)] = 0
+    # With CRRA: E[m^(-ρ) × (Ψ - R)] = 0
+    # dolo takes expectation over this expression and sets it to zero
+    # Complementarity bounds: ς ∈ [0, 1]
+    arbitrage:
+        - (k[t+1])^(-rho) * (exp(ln_psi[t+1] + mu_psi - sigma_psi^2/2) - R)  | 0.0 <= varsigma[t] <= 1.0
+
+calibration:
+    # Discount factor (for infinite horizon; not used in one-period problem)
+    beta: 0.96
+    
+    # Relative risk aversion (CRRA coefficient)
+    # ρ = 10 gives ς* ≈ 0.5 at k = 1.0 with income shocks
+    rho: 10.0
+    
+    # Risk-free gross return
+    R: 1.00
+    
+    # Risky return: log(Ψ) ~ N(μ_Ψ - σ²_Ψ/2, σ²_Ψ) => E[Ψ] = exp(μ_Ψ)
+    # μ_Ψ = 0.058 gives E[Ψ] ≈ 1.06 (6% expected gross return)
+    mu_psi: 0.058
+    sigma_psi: 0.15
+    
+    # Transitory income: log(θ) ~ N(-σ²_θ/2, σ²_θ) => E[θ] = 1
+    sigma_theta: 0.10
+    
+    # Initial state
+    k: 1.0
+    
+    # Initial guess for control (target interior solution)
+    varsigma: 0.5
+    
+    # Exogenous shock initial values (log-space, mean zero)
+    ln_psi: 0.0
+    ln_theta: 0.0
+
+domain:
+    # State space bounds: k ∈ [k_min, k_max]
+    k: [0.01, 10.0]
+
+# Exogenous process: bivariate independent normals (log-space)
+# Theory: joint shock vector ζ = (Ψ, θ) with possible correlation ρ_ζ
+# Here: independent (ρ_ζ = 0), so diagonal covariance
+exogenous: !Normal
+    Sigma: [[sigma_psi^2, 0.0], [0.0, sigma_theta^2]]
+
+options:
+    grid: !Cartesian
+        orders: [100]
+        bounds: [[0.01, 10.0]]

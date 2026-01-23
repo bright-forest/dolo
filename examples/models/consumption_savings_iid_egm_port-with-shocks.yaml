@@ -1,0 +1,271 @@
+# =============================================================================
+# consumption_savings_iid_egm_port-with-shocks.yaml
+# =============================================================================
+#
+# Consumption-savings problem implementing the port-with-shocks modular stage
+# architecture from unified_modular-examples-using-port-with-shocks.md
+#
+# =============================================================================
+# PERIOD STRUCTURE: cons_period (noport → cons)
+# =============================================================================
+#
+# This model implements a complete "cons_period" which consists of two stages:
+#
+#   ┌──────────────────────┐         ┌──────────────────────┐
+#   │ STAGE 1: noport      │  gₑₐ₊   │ STAGE 2: cons        │
+#   │                      │  m → m  │                      │
+#   │ arvl → dcsn → cntn   │ ══════> │ arvl → dcsn → cntn   │
+#   │  k      k  θ   m     │         │  m      m  c   a     │
+#   │              shock   │         │             choice   │
+#   └──────────────────────┘         └──────────────────────┘
+#
+# Flow: k ──(R + θ)──> m ──(consumption c)──> a
+#
+# Between-period connector: k_{t+1} = a_t
+#
+# =============================================================================
+# STAGE DEFINITIONS (unified theory: Modular Examples section)
+# =============================================================================
+#
+# NOPORT STAGE (shock realization, no portfolio choice)
+# -----------------------------------------------------
+# | Property        | Value                              |
+# |-----------------|------------------------------------|
+# | Stage kind      | Sequential                         |
+# | Shock space     | 𝒵 = {θ: log(θ) ~ N(-σ²/2, σ²)}    |
+# | Choice set      | Π = ∅ (no choice)                  |
+# | Stage reward    | r(xᵥ, 𝜋) = 0                       |
+# | Discount        | β(xᵥ) = 1                          |
+# | gₐᵥ             | k = k (identity)                   |
+# | gᵥₑ             | m = k R + θ                        |
+#
+# CONS STAGE (consumption choice, no shocks)
+# ------------------------------------------
+# | Property        | Value                              |
+# |-----------------|------------------------------------|
+# | Stage kind      | Sequential                         |
+# | Shock space     | 𝒵 = {∅} (trivial, no shocks)      |
+# | Choice set      | Π(m) = (0, m)                      |
+# | Stage reward    | r(m, c) = u(c) = c^(1-ρ)/(1-ρ)    |
+# | Discount        | β                                  |
+# | gₐᵥ             | m = m (identity)                   |
+# | gᵥₑ             | a = m - c (budget constraint)      |
+#
+# =============================================================================
+# ROSETTA STONE: Theory ↔ dolo Mapping
+# =============================================================================
+#
+# State Spaces (unified theory: RECURSIVE PROBLEM DEFINITION)
+# | Theory              | dolo          | Description                     |
+# |---------------------|---------------|---------------------------------|
+# | 𝓧ₐ(noport) = ℝ₊₊   | -             | noport arrival (embedded)       |
+# | 𝓧ₑ(noport) = ℝ₊₊   | -             | noport continuation (= m)       |
+# | 𝓧ₐ(cons) = ℝ₊₊     | states: [m]   | cons arrival = market resources |
+# | 𝓧ₑ(cons) = ℝ₊₊     | poststates:[a]| cons continuation = assets      |
+#
+# State Variables (port-with-shocks variable semantics table)
+# | Theory     | dolo   | Description                                |
+# |------------|--------|--------------------------------------------|
+# | k          | -      | Kapital: investable assets (noport arvl)   |
+# | m          | m      | Market resources (cons arvl/dcsn)          |
+# | a          | a      | Assets after consumption (cons cntn)       |
+# | θ = exp(y) | exp(y) | Transitory income shock                    |
+#
+# Choice Variables
+# | Theory     | dolo   | Description                                |
+# |------------|--------|--------------------------------------------|
+# | c          | c      | Consumption, c ∈ (0, m)                    |
+#
+# Value Functions (unified theory: cons stage equations)
+# | Theory          | dolo         | Description                       |
+# |-----------------|--------------|-----------------------------------|
+# | 𝒱(m)           | V(m)         | Decision value at market resources|
+# | ℰ(a)           | -            | Continuation value at assets      |
+# | u(c)           | c^(1-ρ)/(1-ρ)| CRRA flow utility                |
+#
+# Parameters
+# | Theory     | dolo | Reference | Description                        |
+# |------------|------|-----------|-----------------------------------|
+# | R          | R    | r         | Risk-free gross return            |
+# | β          | β    | β         | Discount factor                   |
+# | ρ          | ρ    | γ         | Relative risk aversion (CRRA)     |
+# | σ_θ        | σ    | σ         | Std dev of log transitory shock   |
+#
+# =============================================================================
+# TRANSITION FUNCTIONS (unified theory: Theoretical Propositions)
+# =============================================================================
+#
+# The dolo transition embeds both stages:
+#
+# 1. noport stage: k[t] = a[t-1] (connector), then m[t] = k[t] R + θ[t]
+# 2. cons stage: a[t] = m[t] - c[t]
+#
+# Combined transition:
+#   m[t] = a[t-1] * R + θ[t]
+#        = (m[t-1] - c[t-1]) * R + exp(y[t])
+#
+# In theory notation:
+#   gₑₐ₊: a ↦ k (between-period connector)
+#   gᵥₑ(noport): k ↦ m = k R + θ (noport transition with shock)
+#   gₐᵥ(cons): m ↦ m (identity, cons has no shock)
+#   gᵥₑ(cons): (m, c) ↦ a = m - c (cons budget constraint)
+#
+# =============================================================================
+# VALUE FUNCTION COMPOSITION (unified theory: Period Examples section)
+# =============================================================================
+#
+# cons_period value function:
+#   𝒱_period(k) = 𝒱_noport(k)
+#               = E_θ[𝒱_cons(k R + θ)]
+#               = E_θ[max_c {u(c) + β ℰ(k R + θ - c)}]
+#
+# In dolo, the state is m (market resources after shock), so:
+#   𝒱(m) = max_{c ∈ (0,m)} {u(c) + β E[𝒱(m')]}
+#
+# where m' = a R + θ' = (m - c) R + θ'
+#
+# =============================================================================
+# FIRST-ORDER CONDITIONS (unified theory: cons stage Mathematical Description)
+# =============================================================================
+#
+# Interior FOC (Euler equation):
+#   u'(c) = β E[R × u'(c')]
+#   c^(-ρ) = β R × E[c'^(-ρ)]
+#
+# In dolo arbitrage syntax (expectation taken implicitly):
+#   β R (c[t+1]/c[t])^(-ρ) - 1 = 0
+#
+# Complementarity bounds (borrowing constraint):
+#   0 < c ≤ m
+#
+# =============================================================================
+# EGM EQUATIONS (unified theory: Numerical Solution Methods)
+# =============================================================================
+#
+# The Endogenous Grid Method inverts the FOC:
+#
+# 1. expectation:      mr[t] = β R × E[c[t+1]^(-ρ)]
+# 2. direct_response:  c[t] = mr[t]^(-1/ρ)
+# 3. reverse_state:    m[t] = a[t] + c[t]
+#
+# This gives the policy function χ(m) by working backwards from poststate grid.
+#
+# =============================================================================
+# BORROWING CONSTRAINT (unified theory: cons stage boundary behavior)
+# =============================================================================
+#
+# The natural borrowing constraint a ≥ 0 implies:
+#   - Maximum consumption: c_max = m
+#   - Constrained region: when u'(m) > β E[R × u'(c')]
+#   - For CRRA with ρ > 1: u'(c) → ∞ as c → 0, ensuring c > 0 always
+#
+# =============================================================================
+
+name: consumption_savings_iid_egm_port_with_shocks
+
+symbols:
+    # Exogenous shock: log transitory income (noport stage)
+    # Theory: θ = exp(y), log(θ) ~ N(-σ²/2, σ²) => E[θ] = 1
+    exogenous: [y]
+    
+    # State: market resources (arrival state of cons stage)
+    # Theory: xₐ(cons) = xᵥ(cons) = m ∈ 𝓧ₐ = ℝ₊₊
+    states: [m]
+    
+    # Expectations variable for EGM
+    # Theory: E[β R × u'(c')] computed at poststate grid
+    expectations: [mr]
+    
+    # Poststate: assets after consumption
+    # Theory: xₑ(cons) = a = m - c
+    poststates: [a]
+    
+    # Control: consumption
+    # Theory: 𝜋 = c ∈ Π(m) = (0, m)
+    controls: [c]
+    
+    # Parameters: 𝔭 = (β, ρ, σ, R)
+    parameters: [β, ρ, σ, R]
+
+equations:
+
+    # TRANSITION: Combined noport + connector
+    # Theory: m[t] = gᵥₑ(noport)(k[t], θ[t]) where k[t] = gₑₐ₊(a[t-1])
+    #         m[t] = a[t-1] * R + θ[t]
+    #         m[t] = (m[t-1] - c[t-1]) * R + exp(y[t])
+    transition:
+        - m[t] = exp(y[t]) + (m[t-1] - c[t-1]) * R
+
+    # ARBITRAGE: Euler equation (cons stage FOC)
+    # Theory: u'(c) = β E[R × u'(c')], i.e., c^(-ρ) = β R × E[c'^(-ρ)]
+    # Complementarity: 0 < c ≤ m (borrowing constraint a ≥ 0)
+    arbitrage:
+        - β * R * (c[t+1]/c[t])^(-ρ) - 1  | 0.0 <= c[t] <= m[t]
+
+    # EGM: half_transition computes state from poststate
+    # Theory: m = gᵥₑ(noport)(a, θ) = a * R + θ
+    half_transition: |
+        m[t] = exp(y[t]) + a[t-1] * R
+
+    # EGM: auxiliary computes poststate from state and control
+    # Theory: a = gᵥₑ(cons)(m, c) = m - c (budget constraint)
+    auxiliary_direct_egm: |
+        a[t] = m[t] - c[t]
+
+    # EGM: recover state from poststate and control
+    # Theory: m = gₑᵥ(cons)(a, c) = a + c (inverse of budget constraint)
+    reverse_state: |
+        m[t] = a[t] + c[t]
+
+    # EGM: expected marginal value
+    # Theory: mr = β R × E[u'(c')] = β R × E[c'^(-ρ)]
+    expectation: |
+        mr[t] = β * R * (c[t+1])^(-ρ)
+
+    # EGM: invert FOC to get consumption from marginal value
+    # Theory: c = (mr)^(-1/ρ) from u'(c) = mr
+    direct_response_egm: |
+        c[t] = (mr[t])^(-1/ρ)
+
+calibration:
+    # Discount factor
+    # Theory: β in value function composition
+    β: 0.96
+    
+    # Relative risk aversion (CRRA coefficient)
+    # Theory: ρ in u(c) = c^(1-ρ)/(1-ρ)
+    # Note: Reference model uses γ = 4.0
+    ρ: 4.0
+    
+    # Transitory shock volatility
+    # Theory: σ_θ in log(θ) ~ N(-σ²/2, σ²)
+    σ: 0.1
+    
+    # Risk-free gross return
+    # Theory: R in noport transition m = k R + θ
+    # Note: Reference model uses r = 1.0
+    R: 1.00
+
+    # Initial state value
+    m: 1.0
+    
+    # Initial shock value (log-space)
+    y: 0.0
+    
+    # Initial control guess (fraction of resources consumed)
+    c: 0.9 * m
+
+domain:
+    # State space bounds: m ∈ [m_min, m_max]
+    m: [0.01, 4.0]
+
+# Exogenous process: log transitory income shock
+# Theory: log(θ) ~ N(-σ²/2, σ²) => E[θ] = 1 (mean-one lognormal)
+# UNormal: underlying log is normal with specified sigma
+exogenous: !UNormal
+    sigma: σ
+
+options:
+    grid: !Cartesian
+        orders: [100]
+        bounds: [[0.0, 4.0]]

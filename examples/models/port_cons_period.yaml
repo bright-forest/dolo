@@ -1,0 +1,173 @@
+# =============================================================================
+# port_cons_period.yaml
+# =============================================================================
+#
+# COMBINED PORTFOLIO-CONSUMPTION PERIOD (port-cons_period)
+# From unified_modular-examples-using-port-with-shocks.md
+#
+# =============================================================================
+# IMPORTANT: DOLO LIMITATION
+# =============================================================================
+#
+# This model CANNOT be correctly solved in dolo's standard framework because
+# it requires TWO SEQUENTIAL DECISIONS with DIFFERENT INFORMATION SETS:
+#
+#   1. Portfolio choice (ς): Made BEFORE shocks (Ψ, θ) realize
+#   2. Consumption choice (c): Made AFTER shocks realize, observing m
+#
+# Dolo assumes all controls are chosen at a SINGLE decision point.
+#
+# This file documents the theoretical structure and provides a WORKAROUND
+# using fixed-point iteration between the two stages.
+#
+# =============================================================================
+# PERIOD STRUCTURE: port → cons (k → a)
+# =============================================================================
+#
+# ┌─────────────────────────┐         ┌─────────────────────────┐
+# │ STAGE 1: port           │  gₑₐ₊   │ STAGE 2: cons           │
+# │                         │  m → m  │                         │
+# │ arvl ────> dcsn ─────>  │ cntn ══>│ arvl ────> dcsn ─────>  │ cntn
+# │  k          k    ς,ζ    │  m      │  m          m    c      │  a
+# │             │   ───>    │         │             │   ───>    │
+# │             │  choice   │         │             │  choice   │
+# │             ↓  +shock   │         │             ↓    ↓      │
+# │        max_ς E[ℰ]       │         │          u(c) + βℰ(a)   │
+# └─────────────────────────┘         └─────────────────────────┘
+#
+# Between-period connector: k_{t+1} = a_t
+#
+# =============================================================================
+# VALUE FUNCTION COMPOSITION
+# =============================================================================
+#
+# The nested optimization structure:
+#
+#   𝒱_period(k) = 𝒱_port(k)
+#               = max_ς E_{Ψ,θ}[𝒱_cons(m)]
+#               = max_ς E_{Ψ,θ}[max_c {u(c) + β ℰ(a)}]
+#
+# where:
+#   m = k(ς Ψ + (1-ς) R) + θ     (port transition with shock)
+#   a = m - c                     (cons budget constraint)
+#   k' = a                        (between-period connector)
+#   ℰ(a) = 𝒱_period(a)            (infinite horizon continuation)
+#
+# =============================================================================
+# SEQUENTIAL INFORMATION STRUCTURE
+# =============================================================================
+#
+# Time | Agent knows         | Agent chooses    | Then happens
+# -----|---------------------|------------------|------------------
+# t    | k[t]                | ς[t]             | -
+# t+ε  | k[t], ς[t], ζ[t]    | c[t]             | -
+#      | (so knows m[t])     |                  |
+# t+1  | a[t] = k[t+1]       | ς[t+1]           | ...
+#
+# This CANNOT be captured in a single dolo model.
+#
+# =============================================================================
+# FIRST-ORDER CONDITIONS
+# =============================================================================
+#
+# Portfolio FOC (before knowing shocks):
+#   E[𝒱'_cons(m) × k × (Ψ - R)] = 0
+#
+# Consumption FOC (after knowing m):
+#   u'(c) = β × ∂ℰ(a)/∂a
+#         = β × E[𝒱'_port(a)]  [where expectation is over next period's shocks]
+#
+# =============================================================================
+# SOLUTION APPROACH: Fixed-Point Iteration
+# =============================================================================
+#
+# Since dolo can't solve this directly, we use fixed-point iteration:
+#
+# 1. Initialize: Guess consumption policy χ⁰(m)
+# 
+# 2. Portfolio step: Given χⁿ(m), solve
+#    𝒱_port(k) = max_ς E[u(χⁿ(m)) + β 𝒱_port(m - χⁿ(m))]
+#    Get ς*(k) and 𝒱_port(k)
+#
+# 3. Consumption step: Given 𝒱_port(k), solve
+#    𝒱_cons(m) = max_c {u(c) + β E[𝒱_port(m - c)]}
+#    Get χⁿ⁺¹(m) and 𝒱_cons(m)
+#
+# 4. Check convergence: ||χⁿ⁺¹ - χⁿ|| < tol?
+#    If not, return to step 2.
+#
+# =============================================================================
+# MODEL SPECIFICATION (for documentation; not directly solvable)
+# =============================================================================
+
+name: port_cons_period
+
+# NOTE: This model specification is for DOCUMENTATION ONLY.
+# The actual solution requires the fixed-point iteration implemented in
+# solve_port_cons_period.py
+
+symbols:
+    # Exogenous: joint shocks (log-space for lognormal)
+    exogenous: [ln_psi, ln_theta]
+    
+    # States: kapital at period start
+    states: [k]
+    
+    # Controls: portfolio share (ς) and consumption (c)
+    # NOTE: In reality, these have DIFFERENT information sets!
+    controls: [varsigma, c]
+    
+    # Parameters
+    parameters: [beta, rho, R, sigma_psi, mu_psi, sigma_theta]
+
+definitions:
+    # Shock transformations
+    psi[t]: exp(ln_psi[t] + mu_psi - sigma_psi^2/2)
+    theta[t]: exp(ln_theta[t] - sigma_theta^2/2)
+    # Market resources after portfolio return and shocks
+    m[t]: k[t] * (varsigma[t] * psi[t] + (1 - varsigma[t]) * R) + theta[t]
+    # Assets after consumption
+    a[t]: m[t] - c[t]
+
+equations:
+    # NOTE: These equations are CONCEPTUALLY WRONG for dolo
+    # because ς and c should have different information sets.
+    # They are included for documentation only.
+    
+    # Transition: k' = a = m - c
+    transition:
+        - k[t] = k[t-1] * (varsigma[t-1] * exp(ln_psi[t] + mu_psi - sigma_psi^2/2) + (1 - varsigma[t-1]) * R) + exp(ln_theta[t] - sigma_theta^2/2) - c[t-1]
+
+    # Portfolio arbitrage (should be E[...] where ς is chosen BEFORE shocks)
+    # Consumption arbitrage (should be satisfied state-by-state AFTER shocks)
+    # 
+    # THESE CANNOT BOTH BE CORRECT IN DOLO'S FRAMEWORK
+    arbitrage:
+        # Portfolio: E[marginal value × (Ψ - R)] = 0
+        - (c[t+1])^(-rho) * (exp(ln_psi[t+1] + mu_psi - sigma_psi^2/2) - R)  | 0.0 <= varsigma[t] <= 1.0
+        # Consumption: Euler equation
+        - beta * R * (c[t+1]/c[t])^(-rho) - 1  | 0.0 <= c[t] <= k[t] * (varsigma[t] * exp(ln_psi[t] + mu_psi - sigma_psi^2/2) + (1 - varsigma[t]) * R) + exp(ln_theta[t] - sigma_theta^2/2)
+
+calibration:
+    beta: 0.96
+    rho: 10.0
+    R: 1.00
+    mu_psi: 0.058
+    sigma_psi: 0.15
+    sigma_theta: 0.10
+    k: 1.0
+    varsigma: 0.5
+    c: 0.5
+    ln_psi: 0.0
+    ln_theta: 0.0
+
+domain:
+    k: [0.01, 10.0]
+
+exogenous: !Normal
+    Sigma: [[sigma_psi^2, 0.0], [0.0, sigma_theta^2]]
+
+options:
+    grid: !Cartesian
+        orders: [100]
+        bounds: [[0.01, 10.0]]
