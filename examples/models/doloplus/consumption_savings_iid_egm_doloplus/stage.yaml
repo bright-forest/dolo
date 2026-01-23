@@ -65,6 +65,7 @@ equations:
   # Dolo (horse): `half_transition`
   arvl_to_dcsn_transition: |
     w = exp(y) + b*r
+  # these are not new functions because this statement is true by equality; rather it defines implicitly a function 
 
   # Dolo (horse): `auxiliary_direct_egm`
   # Dolo+ note (keep this detail): in DDSL-CORE this is “define g_ve as w,c \mapsto a, via the following”.
@@ -79,6 +80,8 @@ equations:
   # Akshay note: needs thought / confirm LHS perch (foundations uses `w[_dcsn]`).
   cntn_to_dcsn_transition: |
     w[_cntn] = a + c[_cntn]
+  # above is not defining a transition euation so it needs to be defined as new function of the cntn
+  # state
 
 
   # Dolo (horse): `direct_response_egm` (+ expectation integrand assembled elsewhere)
@@ -90,7 +93,14 @@ equations:
       V[_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V[_cntn])
     # Interpreted by DDSL-CORE as:
     # - V_dcsn = V_fn_dcsn[x_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V_fn_cntn[x_cntn])
-    # AAS naming note: we usually use `V_fn_dcsn` to refer to `V_dcsn_fn`.
+    # AAS naming note: we usually use `V[_dcsn]` to refer to `V_dcsn_fn`.
+    # V[_cntn] = V_fn_cntn[x_cntn] = V_fn_cntn[a] = V_fn_cntn[g_ve(w,c)] 
+    # The V[_cntn] is interpreted by syntax sugar as V_fn_cntn[x_cntn], which be definition of
+    # the state variable is V_fn_cntn[a]. Then the transition function is implicitly defined
+    # by the dcsn_to_cntn_transition *as something that takes to args (not necc the consumption function)
+    # thus we have V_fn_cntn[a] = V_fn_cntn[g_ve(w,c)]. VERY STRICTL, A is also an argument in the 
+    # above exposition since a is notsince a != w- c_fn_dcsn[w] in the V_fn_cntn[x_cntn] this is a
+    # stlight abuse of mathematicl notation that needs to be resolved. 
 
     # Dolo (horse): `direct_response_egm` (policy update from expected marginal value)
     InvEuler: |
@@ -102,6 +112,7 @@ equations:
     # Dolo (horse): expectation integrand (RHS)
     MarginalBellman: |
       dV[_dcsn] = (c[_dcsn])^(-γ)
+
 
   # Dolo (horse): `expectation` (produces the expected marginal object, often called `mr`)
   dcsn_to_arvl_opr:
