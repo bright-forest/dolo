@@ -67,14 +67,16 @@ equations:
     w = exp(y) + b*r
 
   # Dolo (horse): `auxiliary_direct_egm`
-  # DDSL-CORE reading: define a within-stage transition map \(g_{ve}\) (often written `a_fn`)
-  # sending \((w, c) \mapsto a\).
+  # Dolo+ note (keep this detail): in DDSL-CORE this is “define g_ve as w,c \mapsto a, via the following”.
+  # Interpreted by DDSL-CORE as:
+  # - a[_dcsn] = g_ve[x_dcsn] = w - c[_dcsn]
+  # - x_cntn = x_dcsn - c[_dcsn]
+  # AAS naming note: we usually use `g_ve` to refer to `a_fn`.
   dcsn_to_cntn_transition: |
     a = w - c
 
   # Dolo (horse): `reverse_state`
-  # AAS TODO: confirm whether the intended LHS should be `w[_dcsn]` (as in foundations) rather
-  # than `w[_cntn]` (continuation perch).
+  # Akshay note: needs thought / confirm LHS perch (foundations uses `w[_dcsn]`).
   cntn_to_dcsn_transition: |
     w[_cntn] = a + c[_cntn]
 
@@ -86,10 +88,16 @@ equations:
     # Dolo (horse): value recursion is typically implicit in dtcc/EGM YAML (kept explicit here for Dolo+).
     Bellman: |
       V[_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V[_cntn])
+    # Interpreted by DDSL-CORE as:
+    # - V_dcsn = V_fn_dcsn[x_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V_fn_cntn[x_cntn])
+    # AAS naming note: we usually use `V_fn_dcsn` to refer to `V_dcsn_fn`.
 
     # Dolo (horse): `direct_response_egm` (policy update from expected marginal value)
     InvEuler: |
       c[_cntn] = (β*dV[_cntn])^(-1/γ)
+    # Interpreted by DDSL-CORE as:
+    # - c_fn_cntn[x_cntn] = (β*dV_fn_cntn[x_cntn])^(-1/γ)
+    # AAS naming note: we usually use `c_fn_cntn` to refer to `c_cntn_fn`.
 
     # Dolo (horse): expectation integrand (RHS)
     MarginalBellman: |
