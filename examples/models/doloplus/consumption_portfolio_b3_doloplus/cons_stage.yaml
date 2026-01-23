@@ -12,15 +12,14 @@
 
 symbols:
   spaces:
-    Xm: "@def R+"     # cash-on-hand entering the stage
     Xw: "@def R+"     # decision resources (same numeric space as Xm)
     Xa: "@def R+"     # end-of-stage assets (savings)
 
   prestate:
-    m: "@in Xm"
+    w_prestate: "@in R+"  # m must be positive
 
   states:
-    w: "@in Xw"
+    w: "@in R+"  # 
 
   poststates:
     a: "@in Xa"
@@ -29,37 +28,43 @@ symbols:
     c: "@in R+"
 
   values:
-    V: "@in R"
+    V[_arvl]: "@in R"
+    V[_dcsn]: "@in R"
+    V[_cntn]: "@in R"
 
-  shadow_value:
-    dV: "@in R+"
+  values_marginal:
+    dV[_arvl]: "@in R+"
+    dV[_dcsn]: "@in R+"
+    dV[_cntn]: "@in R+"
 
   parameters:
     β: "@in (0,1)"
     γ: "@in R+"
 
-  settings:
+  settings: # settings for methods - AAS think about it
     n_w: "@in Z+"
     w_domain_min: "@in R+"
     w_domain_max: "@in R+"
     w_grid_min: "@in R+"
     w_grid_max: "@in R+"
+    # The settings will need to be compatible with the methods being used - AAS think about it
 
 equations:
   # No shocks between arrival and decision in B3:
   arvl_to_dcsn_transition: |
-    w[_dcsn] = m[_arvl]
+    w = w_prestate # x_v = g_av(x_a)
 
-  dcsn_to_cntn_transition: |
-    a[_cntn] = w[_dcsn] - c[_dcsn]
-
+  dcsn_to_cntn_transition: | # CDC says eventually [_cntn]/[_dcsn] should go away
+    a = w - c      # x_e = g_ve(c_fn_dcsn(x_v),x_v) 
+    
   # Reverse state mapping (EGM-style):
   cntn_to_dcsn_transition: |
-    w[_cntn] = a[_cntn] + c[_cntn]
+    w[_cntn] = a + c[_dcsn] # syntactic sugar for w_fn_cntn(a, c) = w_fn_dcsn(a[_dcsn], c[_dcsn])
 
   cntn_to_dcsn_mover:
-    Bellman: |
-      V[_dcsn] = max_{c}((c[_dcsn]^(1-γ))/(1-γ) + β*V[_cntn])
+    Bellman: | 
+      V[_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V[_cntn])    # V_fn_dcsn(w[_dcsn]) = max_{c} (c[_dcsn]^(1-γ))/(1-γ) + β*V_fn_cntn(w[_cntn]) 
+      c[_dcsn] = argmax_{c}((c^(1-γ))/(1-γ) + β*V[_cntn]) # semantic parser: knows this is V_fn_cntn(w[_cntn]) because the parser know how to interpet the cntn_to_dcsn_transition equation
     InvEuler: |
       c[_cntn] = (β*dV[_cntn])^(-1/γ)
     ShadowBellman: |

@@ -1,0 +1,109 @@
+# Portfolio stage (B4): Implementation of "port - Portfolio Problem" from unified.md
+#
+# This file implements the portfolio choice problem described in unified.md (lines 777-870),
+# extended with transitory income shocks for joint shock correlation.
+#
+# Mapping from unified.md "port" notation to this implementation:
+# | unified.md      | this file       | Description                              |
+# |-----------------|-----------------|------------------------------------------|
+# | (xₐ,xᵥ,xₑ)      | (lqd, liq, m) | State variables at each perch |
+# | (k,ℓ,f)         | (lqd, liq, m) | unified.md names for port states |
+# | 𝜋 = ω           | shr             | Portfolio share in risky asset           |
+# | Π = [0,1]       | [0,1]           | Choice set (state-independent)           |
+# | ζ = R̃           | (RiskyShk, TranShk) | Shock realizations (extended)         |
+# | r(xᵥ,𝜋) = 0     | (implicit)      | Zero stage reward                        |
+# | β(xᵥ) = 1       | (implicit)      | Unit discount factor                     |
+#
+# B4 timing idea:
+# - Portfolio choice is made at the decision perch.
+# - Return + income shocks are realized *after* the decision (between dcsn and cntn),
+#   so the agent cannot condition the choice on them.
+# - The cntn state is cash-on-hand `m`
+#
+# Why: this is the simplest way to allow unrestricted correlation across shocks
+# 
+# So you end up with a_{t}=A_{t}/P_{t}
+#
+# UNIFIED NOTATION DEVIATION: Standard unified.md has shock ζ realize between 
+# arrival and decision via gₐᵥ(xₐ, ζ) → xᵥ. This stage instead has ζ realize 
+# between decision and continuation via gᵥₑ(xᵥ, 𝜋, ζ) → xₑ. This matches the
+# unified.md port specification where the decision-to-continuation is identity
+# but here extended to include post-decision shock realization.
+
+symbols:
+  prestates:                # unified: xₐ - arrival perch state variables
+    lqd: "@in R+"  # unified: 𝓧ₐ = R++ (arrival state space)
+
+  exogenous:
+    # unified: ζ ∈ 𝒵 - Shock realizations with probability measure P(ζ)
+    # Note: In this stage, shocks realize AFTER decision (between dcsn and cntn)
+    # unified shock tuple: ζ = (RiskyShklog, TranShklog)
+    # Realized between decision and continuation (post-decision).
+    RiskyShklog:
+      - "@in R"                   # lim as risky goes down to -infty is = 0 is the lower bound of the log risky return factor
+      - "@dist Normal(-(0.5) * σ_RiskyShklog**2, σ_RiskyShklog)"
+    TranShklog: # log-transitory-income-shock
+      - "@in R"                   # lim as y goes down to -infty is = 0 is the lower bound of the 
+      - "@dist Normal(-(0.5) * σ_TranShklog**2, σ_TranShklog)"  # normal distribution with mean μ_y and standard deviation σ_y
+# Later we can add the permanent shock
+#    PermShklog: # log-permanent-income-shock
+#      - "@in R"                   # lim as y goes down to -infty is = 0 is the lower bound of the 
+#      - "@dist Normal(-(0.5) * σ_PermShklog**2, σ_PermShklog)"  # normal distribution with mean μ_y and standard deviation σ_y
+
+      # actually, we really want to make these jointly drawn shocks (TranShklog, RiskyShklog) with a covariance but haven't done it yet
+      # When we do, we will follow Dolo in calling it \Sigma
+
+  states:                   # unified: xᵥ - decision perch state variables
+    liq: "@in R++"          # unified: 𝓧ᵥ = R++ (decision state space)
+
+  controls:                 # unified: 𝜋 ∈ Π(xᵥ) - choice variables
+    shr: "@in [0,1]"        # unified: Π = [0,1] (choice set, state-independent)
+
+  poststates:               # unified: xₑ - continuation perch state variables
+    m: "@in R+"             # unified: 𝓧ₑ = R++ (continuation state space)
+
+  values:
+    V[_arvl]: "@in R"       # unified: 𝒜(xₐ) - arrival value function
+                            # this is syntactic sugar for V_fn_arvl(lqd)
+    V[_dcsn]: "@in R"       # unified: 𝒱(xᵥ) - decision value function
+                            # this is syntactic sugar for V_fn_dcsn(liq)
+    V[_cntn]: "@in R"       # unified: ℰ(xₑ) - continuation value function
+                            # this is syntactic sugar for V_fn_cntn(m)
+ 
+  parameters:               # unified: 𝔭 - fixed parameters
+    Rfree: "@in R++"
+    μ_RiskyShklog: "@in R"
+    σ_RiskyShklog: "@in R+"
+    μ_TranShklog: "@in R"
+    σ_TranShklog: "@in R+"
+    μ_PermShklog: "@in R"
+    σ_PermShklog: "@in R+"
+
+equations:
+  # Some functions (value function, expectations) will be different at different perches.
+  # For them, we need to be crystal clear about which perch we are evaluating the function at
+
+  # A subtlety present in a dcsn perch is that we will want to call the dcsn value function
+  # the value that you get IF you make the optimal choice. In finding that optimal choice,
+  # you will need to be able to evaluate the value that would be obtained from suboptimal choices
+  # and, in VFI or PFI, the whole game is to FIND the 𝜋 (here: shr) that maximizes
+
+  # The implication is that, in a dcsn perch, our expectations operator must include both the state AND control variables
+  # e.g., E[_dcsn](V[_cntn]) means evaluate the cntn value function at the decision perch
+  # note that the expectation is always taken with respect to BOTH state AND control variables (if any)
+  #
+  # The state tuple and control tuple (if any) are attributes of the perch, so do not need to be explicitly specified
+
+  cntn_to_dcsn_mover:  
+    # unified: xₑ = gᵥₑ(xᵥ, 𝜋, ζ) where ζ realizes post-decision
+    # Bellman: 𝒱(xᵥ) = max_{𝜋 ∈ Π} E_ζ[ℰ(gᵥₑ(xᵥ, 𝜋, ζ))]
+    # Here: gᵥₑ(liq_state, shr, (RiskyShk, TranShk)) = m
+    # Note: r(xᵥ, 𝜋) = 0 (no stage reward) and β(xᵥ) = 1 (unit discount)
+    Bellman: |
+      V[_dcsn]   =    max_{shr} E[_dcsn](V[_cntn]) # unified: 𝒱(xᵥ) = max_𝜋 E_ζ[ℰ(xₑ)]
+      shr[_dcsn] = argmax_{shr} E[_dcsn](V[_cntn]) # unified: policy function π*(xᵥ)
+
+  arvl_to_dcsn_transition: |
+    # unified: xᵥ = gₐᵥ(xₐ) - in this stage, identity map (no shock between arrival and decision)
+    # Note: differs from standard unified.md where gₐᵥ(xₐ, ζ) includes shock
+    liq = liq     # unified: xᵥ = xₐ (identity transition)
