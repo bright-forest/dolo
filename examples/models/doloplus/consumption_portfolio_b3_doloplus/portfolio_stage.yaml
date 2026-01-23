@@ -52,11 +52,11 @@ symbols:
 
 equations:
   arvl_to_dcsn_transition: |
-    k[_dcsn] = a[_arvl]
+    k = a
 
   # All shocks are realized after the portfolio decision.
   dcsn_to_cntn_transition: |
-    m[_cntn] = exp(y[_cntn]) + k[_dcsn]*(shr[_dcsn]*Risky[_cntn] + (1-shr[_dcsn])*Rf)
+    m = exp(y) + k*(shr[_dcsn]*Risky + (1-shr[_dcsn])*Rf)
 
   cntn_to_dcsn_mover:
     Bellman: |
