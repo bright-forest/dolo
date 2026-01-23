@@ -79,7 +79,7 @@ equations:
   # Dolo (horse): `reverse_state`
   # Akshay note: needs thought / confirm LHS perch (foundations uses `w[_dcsn]`).
   cntn_to_dcsn_transition: |
-    w[_cntn] = a + c[_cntn]
+    w = a + c
   # above is not defining a transition euation so it needs to be defined as new function of the cntn
   # state
 
