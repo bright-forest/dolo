@@ -1,0 +1,20 @@
+# Period type 1: cons_period (k → a)
+#
+# Stage sequence (within a period):
+#   noport → cons
+#
+# Intra-period wiring:
+# - noport outputs m
+# - cons expects m
+# so the connector is identity and may be omitted.
+#
+# Between-period link (default infinite-horizon recursion):
+# - next-period k is fed from this period’s terminal assets a
+#   (k_{t+1} = a_t), potentially with an explicit rename at assembly level.
+
+name: cons_period
+
+stages:
+  - noport_stage
+  - cons_stage
+

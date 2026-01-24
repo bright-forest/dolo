@@ -1,0 +1,67 @@
+# Example: Portfolio Choice with Correlated Shocks — Stage: noport
+#
+# Shock realization stage with no decision:
+# - arvl/dcsn state: k (investable assets)
+# - post-decision shock: θ (transitory income) realized in dcsn→cntn
+# - cntn state: m = k*R + θ
+#
+# This stage is useful both as:
+# - a “no-portfolio” period (noport→cons), and
+# - a bridge when we need to go from an a-ending object to an m-starting object across periods.
+
+name: noport_stage
+
+symbols:
+  spaces:
+    Xk: "@def R++"
+    Xm: "@def R++"
+    Θ:  "@def R++"
+
+  prestate:
+    k: "@in Xk"
+
+  # Shock realized after (trivial) decision
+  exogenous:
+    θ:
+      - "@in Θ"
+      - "@dist LogNormal(μ_θ, σ_θ)"
+
+  states:
+    k_d: "@in Xk"
+
+  poststates:
+    m: "@in Xm"
+
+  values:
+    V[_arvl]: "@in R"
+    V[_dcsn]: "@in R"
+    V[_cntn]: "@in R"
+
+  parameters:
+    R: "@in R++"
+    μ_θ: "@in R"
+    σ_θ: "@in R+"
+
+equations:
+  # No shock between arrival and decision:
+  arvl_to_dcsn_transition: |
+    k_d = k
+
+  # Shock realized after decision (dcsn→cntn):
+  dcsn_to_cntn_transition: |
+    m = k_d*R + θ
+
+  # No choice ⇒ decision value is just an expectation over the post-decision shock.
+  cntn_to_dcsn_mover:
+    Bellman: |
+      V[_dcsn] = E_{θ}(V[_cntn])
+
+  # No expectation at arrival (deterministic arvl→dcsn):
+  dcsn_to_arvl_mover:
+    Bellman: |
+      V[_arvl] = V[_dcsn]
+
+dolo_plus:
+  dialect: adc-stage
+  version: 0.1
+

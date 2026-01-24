@@ -1,0 +1,75 @@
+# Example: Portfolio Choice with Correlated Shocks — Stage: cons
+#
+# Deterministic consumption stage (no shocks in this stage):
+# - arvl/dcsn state: m (cash-on-hand, already fully realized by noport/port)
+# - decision: consumption c ∈ (0,m)
+# - cntn state: a = m - c
+#
+# This is the “EGM-friendly” stage: expectation is not needed inside the stage.
+
+name: cons_stage
+
+symbols:
+  spaces:
+    Xm: "@def R++"
+    Xa: "@def R+"
+
+  prestate:
+    m: "@in Xm"
+
+  states:
+    m_d: "@in Xm"
+
+  poststates:
+    a: "@in Xa"
+
+  controls:
+    c: "@in R+"
+
+  values:
+    V[_arvl]: "@in R"
+    V[_dcsn]: "@in R"
+    V[_cntn]: "@in R"
+
+  values_marginal:
+    dV[_arvl]: "@in R+"
+    dV[_dcsn]: "@in R+"
+    dV[_cntn]: "@in R+"
+
+  parameters:
+    β: "@in (0,1)"
+    ρ: "@in R+"
+
+equations:
+  # No shock between arrival and decision:
+  arvl_to_dcsn_transition: |
+    m_d = m
+
+  dcsn_to_cntn_transition: |
+    a = m_d - c
+
+  # Reverse mapping used by EGM-style representations:
+  cntn_to_dcsn_transition: |
+    m_d = a + c
+
+  cntn_to_dcsn_mover:
+    Bellman: |
+      V[_dcsn] = max_{c}((c^(1-ρ))/(1-ρ) + β*V[_cntn])
+      c[_dcsn] = argmax_{c}((c^(1-ρ))/(1-ρ) + β*V[_cntn])
+    InvEuler: |
+      c[_cntn] = (β*dV[_cntn])^(-1/ρ)
+    ShadowBellman: |
+      dV[_dcsn] = (c[_dcsn])^(-ρ)
+
+  # Deterministic arvl→dcsn:
+  dcsn_to_arvl_mover:
+    Bellman: |
+      V[_arvl] = V[_dcsn]
+    ShadowBellman: |
+      dV[_arvl] = dV[_dcsn]
+
+dolo_plus:
+  dialect: adc-stage
+  version: 0.1
+  method: egm
+
