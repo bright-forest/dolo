@@ -1,0 +1,78 @@
+# Example: Portfolio Choice with Correlated Shocks — Stage: port
+#
+# Portfolio stage with post-decision correlated shocks:
+# - arvl/dcsn state: k (investable assets)
+# - decision: risky share ς ∈ [0,1]
+# - post-decision shock vector ζ = (Ψ, θ) realized jointly in dcsn→cntn
+# - cntn state: m = k*(ς*Ψ + (1-ς)*R) + θ
+#
+# The Bellman form is max-over-expectation:  V(k) = max_ς E_{Ψ,θ}[Ve(m)].
+
+name: port_stage
+
+symbols:
+  spaces:
+    Xk: "@def R++"
+    Xm: "@def R++"
+    Π:  "@def [0,1]"
+    Rp: "@def R++"
+    Θ:  "@def R++"
+
+  prestate:
+    k: "@in Xk"
+
+  states:
+    k_d: "@in Xk"
+
+  controls:
+    ς: "@in Π"
+
+  # Shocks realized after the portfolio decision (post-decision timing).
+  exogenous:
+    Ψ:
+      - "@in Rp"
+      - "@dist LogNormal(μ_Ψ, σ_Ψ)"
+    θ:
+      - "@in Θ"
+      - "@dist LogNormal(μ_θ, σ_θ)"
+
+  poststates:
+    m: "@in Xm"
+
+  values:
+    V[_arvl]: "@in R"
+    V[_dcsn]: "@in R"
+    V[_cntn]: "@in R"
+
+  parameters:
+    R: "@in R++"
+    μ_Ψ: "@in R"
+    σ_Ψ: "@in R+"
+    μ_θ: "@in R"
+    σ_θ: "@in R+"
+    ρ_ζ: "@in [-1,1]"   # placeholder for correlation parameter (not yet wired into @dist here)
+
+equations:
+  # No shocks between arrival and decision:
+  arvl_to_dcsn_transition: |
+    k_d = k
+
+  # Joint post-decision shocks realized in the dcsn→cntn transition:
+  dcsn_to_cntn_transition: |
+    m = k_d*(ς[_dcsn]*Ψ + (1-ς[_dcsn])*R) + θ
+
+  # Decision value: max-over-expectation (post-decision shocks).
+  cntn_to_dcsn_mover:
+    Bellman: |
+      V[_dcsn] = max_{ς}(E_{Ψ,θ}(V[_cntn]))
+      ς[_dcsn] = argmax_{ς}(E_{Ψ,θ}(V[_cntn]))
+
+  # No expectation at arrival (deterministic arvl→dcsn):
+  dcsn_to_arvl_mover:
+    Bellman: |
+      V[_arvl] = V[_dcsn]
+
+dolo_plus:
+  dialect: adc-stage
+  version: 0.1
+

@@ -51,7 +51,7 @@ def value_iteration(
     transition = model.functions["transition"]
     felicity = model.functions["felicity"]
 
-    # Use model.x_bounds fallback (spec 0.1e)
+    # Use model.x_bounds fallback (spec 0.1f)
     # Checks controls_lb/ub first, then arbitrage_lb/ub
     if model.x_bounds is not None:
         controls_lb, controls_ub = model.x_bounds

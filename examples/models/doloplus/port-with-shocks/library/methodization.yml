@@ -1,0 +1,108 @@
+# Methodization for port-with-shocks stages
+#
+# This file defines method attachments for all stages in the library.
+# Apply to each stage individually - targets are matched by equation label.
+#
+# Note: Stage-qualified targets (e.g., cons_stage.cntn_to_dcsn_mover) are
+# documented but the current implementation matches by label only.
+
+library: port-with-shocks
+
+methods:
+
+  # ===========================================================================
+  # OPERATOR INSTANCES
+  # ===========================================================================
+  # Expectation operators extracted from equation bodies.
+
+  # E_{θ}(...) - transitory income shock (noport_stage)
+  - on: E_θ
+    schemes:
+      - scheme: expectation
+        method: !gauss-hermite
+        settings:
+          n_nodes: n_θ_nodes
+
+  # E_{Ψ,θ}(...) - joint risky return + income (port_stage)
+  - on: E_Ψθ
+    schemes:
+      - scheme: expectation
+        method: !gauss-hermite
+        settings:
+          n_nodes: n_joint_nodes
+
+  # ===========================================================================
+  # BACKWARD MOVERS
+  # ===========================================================================
+
+  # --- cntn_to_dcsn_mover ---
+  # cons_stage: EGM with InvEuler
+  # port_stage: VFI with max over ς
+  # noport_stage: pure expectation (no optimization)
+
+  - on: cntn_to_dcsn_mover
+    schemes:
+      - scheme: bellman_backward
+        method: !egm
+        description: "Default: EGM for cons_stage; override for port/noport"
+
+      - scheme: interpolation
+        method: !Cartesian
+        settings:
+          orders: [n_m]
+          bounds: [[m_min, m_max]]
+
+  - on: cntn_to_dcsn_mover.Bellman
+    schemes: []
+
+  - on: cntn_to_dcsn_mover.InvEuler
+    schemes:
+      - scheme: egm_core
+        method: !inverse-euler
+
+  - on: cntn_to_dcsn_mover.ShadowBellman
+    schemes:
+      - scheme: envelope
+        method: !marginal-value
+
+  # --- dcsn_to_arvl_mover ---
+  # All stages: identity (no shock between arvl and dcsn)
+
+  - on: dcsn_to_arvl_mover
+    schemes: []
+
+  - on: dcsn_to_arvl_mover.Bellman
+    schemes: []
+
+  - on: dcsn_to_arvl_mover.ShadowBellman
+    schemes: []
+
+  # ===========================================================================
+  # TRANSITIONS
+  # ===========================================================================
+
+  - on: arvl_to_dcsn_transition
+    schemes: []
+
+  - on: dcsn_to_cntn_transition
+    schemes: []
+
+  - on: cntn_to_dcsn_transition
+    schemes: []
+
+  # ===========================================================================
+  # FORWARD MOVERS (Simulation)
+  # ===========================================================================
+
+  - on: arvl_to_dcsn_mover
+    schemes:
+      - scheme: simulation
+        method: !deterministic
+
+  - on: dcsn_to_cntn_mover
+    schemes:
+      - scheme: simulation
+        method: !monte-carlo
+        settings:
+          n_paths: n_sim
+          seed: sim_seed

@@ -91,7 +91,6 @@ equations:
     # Dolo (horse): value recursion is typically implicit in dtcc/EGM YAML (kept explicit here for Dolo+).
     Bellman: |
       V[_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V[_cntn])
-    # Interpreted by DDSL-CORE as:
     # - V_dcsn = V_fn_dcsn[x_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V_fn_cntn[x_cntn])
     # AAS naming note: we usually use `V[_dcsn]` to refer to `V_dcsn_fn`.
     # V[_cntn] = V_fn_cntn[x_cntn] = V_fn_cntn[a] = V_fn_cntn[g_ve(w,c)] 
@@ -122,3 +121,7 @@ equations:
     # Dolo (horse): expectation output (LHS)
     MarginalBellman: |
       dV[_arvl] = r * E_{y}(dV[_dcsn])
+
+dolo_plus:
+  dialect: adc-stage
+  version: 0.1

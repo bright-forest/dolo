@@ -202,6 +202,10 @@ class SymbolicModel:
                     else:
                         start = "assignment_block"
                     eqs = parse_string(v, start=start)
+                    # spec_0.1g: resolve bare symbols to indexed variables for adc-stage
+                    if is_adc_stage:
+                        from dolang.perch_resolver import resolve_native_perches
+                        eqs = resolve_native_perches(eqs, self.symbols)
                     eqs = sanitize(eqs, variables=vars)
                     eq_list = eqs.children
                     if g in ("arbitrage",):
@@ -236,7 +240,7 @@ class SymbolicModel:
                             d[g + "_lb"] = ll_lb
                             d[g + "_ub"] = ll_ub
                     elif g in ("value",):
-                        # Handle value block with optional ⊥ bound constraints (spec 0.1e)
+                        # Handle value block with optional ⊥ bound constraints (spec 0.1f)
                         ll = []  # value equations
                         ll_lb = []  # bound lower limits
                         ll_ub = []  # bound upper limits
@@ -302,7 +306,7 @@ class SymbolicModel:
                 elif isinstance(v, yaml.nodes.SequenceNode):
                     eq_list = []
                     for eq_string in sequence_values(v):
-                        # Check for ⊥ in list form - not supported (spec 0.1e)
+                        # Check for ⊥ in list form - not supported (spec 0.1f)
                         eq_str = scalar_value(eq_string) if hasattr(eq_string, 'value') else str(eq_string)
                         if g == "value" and "⊥" in eq_str:
                             raise Exception(
@@ -374,6 +378,9 @@ class SymbolicModel:
                         assert sub_v.style == "|"
 
                         eqs = parse_string(sub_v, start="assignment_block")
+                        # spec_0.1g: resolve bare symbols to indexed variables for adc-stage
+                        from dolang.perch_resolver import resolve_native_perches
+                        eqs = resolve_native_perches(eqs, self.symbols)
                         eqs = sanitize(eqs, variables=vars)
                         subeqs[sub_label] = [str_expression(e) for e in eqs.children]
 
