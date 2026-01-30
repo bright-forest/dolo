@@ -2,16 +2,8 @@
 #
 # Core compilation and instantiation components for Dolo+ models.
 
-# Period instantiation (spec_0.1h)
-from .instantiation import (
-    make_connector,
-    make_terminal_relabel,
-    make_twister,
-    load_period_template,
-    instantiate_period,
-    make_model_dict,
-    validate_model_dict,
-)
+# Model validation (spec_0.1h)
+from .instantiation import validate_model_dict
 
 # Calibration/Settings functors (spec_0.1c)
 from .calibration import (
@@ -31,13 +23,7 @@ from .methodization import (
 )
 
 __all__ = [
-    # Instantiation
-    "make_connector",
-    "make_terminal_relabel",
-    "make_twister",
-    "load_period_template",
-    "instantiate_period",
-    "make_model_dict",
+    # Validation
     "validate_model_dict",
     # Calibration
     "load_calibration",
