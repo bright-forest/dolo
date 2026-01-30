@@ -1,4 +1,4 @@
-# Period type 3: cons-port_period (m → w)
+# Period template: cons_port_period (cons → port)
 #
 # Stage sequence (within a period):
 #   cons → port
@@ -7,13 +7,6 @@
 # - cons outputs a
 # - port expects k
 # so we need an internal connector: k = a
-#
-# Terminal relabel:
-# - port outputs m; we relabel it to w at period boundary so “period cntn” is w
-#   (useful to distinguish from period-start m).
-#
-# Between-period link:
-# - for an m-starting period, we typically want m_{t+1} = w_t.
 
 name: cons_port_period
 
@@ -24,10 +17,7 @@ stages:
 # Proposed (optional) explicit connector declarations for period assembly.
 # Current repo examples keep connections implicit; this block documents the intended wiring.
 connectors:
-  intra_period:
-    - from: cons_stage
-      to: port_stage
-      rename: {a: k}
-  terminal_relabel:
-    rename: {m: w}
+  - from: cons_stage
+    to: port_stage
+    rename: {a: k}
 
