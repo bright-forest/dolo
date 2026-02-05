@@ -1,0 +1,69 @@
+# Methodization (spec_0.1d) for `noport_stage.yaml`
+#
+# Expectation-only stage: no optimization, just shock realization and expectation.
+
+stage: noport_stage
+
+methods:
+  # ---------------------------------------------------------------------------
+  # Operator instances (extracted from equation bodies)
+  # ---------------------------------------------------------------------------
+  - on: E_θ
+    schemes:
+      - scheme: expectation
+        method: !gauss-hermite
+        settings:
+          n_nodes: n_θ_nodes
+
+  # ---------------------------------------------------------------------------
+  # Backward mover (pure expectation; no maximization)
+  # ---------------------------------------------------------------------------
+  - on: cntn_to_dcsn_mover
+    schemes:
+      - scheme: bellman_backward
+        method: !expectation
+        description: "No-choice mover: V_dcsn = E_θ(V_cntn)"
+
+      - scheme: interpolation
+        method: !Cartesian
+        settings:
+          orders: [n_m]
+          bounds: [[m_min, m_max]]
+
+  - on: cntn_to_dcsn_mover.Bellman
+    schemes: []
+
+  # ---------------------------------------------------------------------------
+  # Arrival mover (identity)
+  # ---------------------------------------------------------------------------
+  - on: dcsn_to_arvl_mover
+    schemes: []
+
+  - on: dcsn_to_arvl_mover.Bellman
+    schemes: []
+
+  # ---------------------------------------------------------------------------
+  # Transitions (pure functions)
+  # ---------------------------------------------------------------------------
+  - on: arvl_to_dcsn_transition
+    schemes: []
+
+  - on: dcsn_to_cntn_transition
+    schemes: []
+
+  # ---------------------------------------------------------------------------
+  # Forward movers (simulation)
+  # ---------------------------------------------------------------------------
+  - on: arvl_to_dcsn_mover
+    schemes:
+      - scheme: simulation
+        method: !deterministic
+
+  - on: dcsn_to_cntn_mover
+    schemes:
+      - scheme: simulation
+        method: !monte-carlo
+        settings:
+          n_paths: n_sim
+          seed: sim_seed
+

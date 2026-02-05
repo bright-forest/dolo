@@ -24,7 +24,8 @@ methods:
           n_nodes: n_θ_nodes
 
   # E_{Ψ,θ}(...) - joint risky return + income (port_stage)
-  - on: E_Ψθ
+  # Note: operator instance IDs normalize multi-subscripts as E_Ψ_θ.
+  - on: E_Ψ_θ
     schemes:
       - scheme: expectation
         method: !gauss-hermite
@@ -60,10 +61,14 @@ methods:
       - scheme: egm_core
         method: !inverse-euler
 
-  - on: cntn_to_dcsn_mover.ShadowBellman
+  # cons_stage uses `MarginalBellman` (not ShadowBellman) for the marginal object
+  - on: cntn_to_dcsn_mover.MarginalBellman
     schemes:
       - scheme: envelope
         method: !marginal-value
+
+  - on: cntn_to_dcsn_mover.cntn_to_dcsn_transition
+    schemes: []
 
   # --- dcsn_to_arvl_mover ---
   # All stages: identity (no shock between arvl and dcsn)
@@ -87,8 +92,7 @@ methods:
   - on: dcsn_to_cntn_transition
     schemes: []
 
-  - on: cntn_to_dcsn_transition
-    schemes: []
+  # (No stage in this library exports a top-level cntn_to_dcsn_transition.)
 
   # ===========================================================================
   # FORWARD MOVERS (Simulation)

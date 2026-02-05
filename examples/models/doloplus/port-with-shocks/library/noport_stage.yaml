@@ -42,6 +42,15 @@ symbols:
     μ_θ: "@in R"
     σ_θ: "@in R+"
 
+  # Numerical settings (referenced by methodization.yml)
+  settings:
+    n_m: "@in Z+"
+    m_min: "@in R+"
+    m_max: "@in R+"
+    n_θ_nodes: "@in Z+"
+    n_sim: "@in Z+"
+    sim_seed: "@in Z+"
+
 equations:
   # No shock between arrival and decision:
   arvl_to_dcsn_transition: |

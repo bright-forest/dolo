@@ -41,6 +41,14 @@ symbols:
     β: "@in (0,1)"
     ρ: "@in R+"
 
+  # Numerical settings (referenced by methodization.yml)
+  settings:
+    n_m: "@in Z+"
+    m_min: "@in R+"
+    m_max: "@in R+"
+    n_sim: "@in Z+"
+    sim_seed: "@in Z+"
+
 equations:
   # No shock between arrival and decision:
   arvl_to_dcsn_transition: |  # this defines the g_av function. g_av  is a canonical core math object that needs to be defined in the stage syntax and this equation defines it. (see all the docs on the math - stage syntax mapping)
