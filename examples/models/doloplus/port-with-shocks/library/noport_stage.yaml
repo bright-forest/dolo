@@ -65,3 +65,22 @@ dolo_plus:
   dialect: adc-stage
   version: 0.1
 
+  # Canonical equation symbols for translator
+  equation_symbols:
+    arvl_to_dcsn_transition: g_ad
+    dcsn_to_cntn_transition: g_de
+    cntn_to_dcsn_mover: T_ed
+    dcsn_to_arvl_mover: T_da
+
+  # Slot map: prestate → poststate linkage for inter-period wiring
+  slot_map:
+    prestate: k      # arrival state (from previous period's poststate)
+    poststate: m     # continuation state (becomes next stage's prestate)
+
+  # Perch index aliases (defaults)
+  validation:
+    index_aliases:
+      _arvl: -1
+      _dcsn: 0
+      _cntn: 1
+

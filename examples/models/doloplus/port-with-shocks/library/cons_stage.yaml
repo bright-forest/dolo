@@ -71,3 +71,37 @@ equations:
     ShadowBellman: |
       dV[_arvl] = dV[_dcsn]
 
+dolo_plus:
+  dialect: adc-stage
+  version: 0.1
+
+  # Canonical equation symbols for translator
+  equation_symbols:
+    arvl_to_dcsn_transition: g_ad
+    dcsn_to_cntn_transition: g_de
+    cntn_to_dcsn_mover: T_ed
+    dcsn_to_arvl_mover: T_da
+
+  # Sub-equation symbols within movers
+  mover_sub_equations:
+    T_ed:
+      Bellman: T_ed_Bellman
+      InvEuler: T_ed_InvEuler
+      MarginalBellman: T_ed_MarginalBellman
+      cntn_to_dcsn_transition: g_ed  # Reverse transition for EGM
+    T_da:
+      Bellman: T_da_Bellman
+      ShadowBellman: T_da_ShadowBellman
+
+  # Slot map: prestate → poststate linkage
+  slot_map:
+    prestate: m      # arrival state (cash-on-hand from noport)
+    poststate: a     # continuation state (post-consumption assets)
+
+  # Perch index aliases (defaults)
+  validation:
+    index_aliases:
+      _arvl: -1
+      _dcsn: 0
+      _cntn: 1
+
