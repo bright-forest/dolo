@@ -8,11 +8,6 @@ settings:
   a_min: 1.0e-8
   a_max: 40.0
 
-  # Housing grid (discrete)
-  n_H: 7
-  H_min: 0.0
-  H_max: 5.0
-
   # Cash-on-hand grid
   n_w: 200
   w_min: 1.0e-8

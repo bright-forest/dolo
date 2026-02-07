@@ -13,7 +13,7 @@ name: OwnerHousingChoice
 symbols:
   spaces:
     Xa: "@def R+"       # asset domain
-    XH: "@def R+"       # housing stock domain
+    XH: "@def linspace(H_min, H_max, n_H)"  # discrete housing grid
     Xw: "@def R+"       # cash-on-hand domain
     Y:  "@def Z+"       # income shock index
 
@@ -49,16 +49,16 @@ symbols:
   parameters:
     r: "@in R+"         # interest rate
     phi: "@in R+"       # housing transaction cost (proportional)
+    n_H: "@in Z+"       # housing grid points (defines XH)
+    H_min: "@in R+"     # housing grid lower bound (defines XH)
+    H_max: "@in R+"     # housing grid upper bound (defines XH)
 
   settings:
     n_a: "@in Z+"
-    n_H: "@in Z+"
     n_w: "@in Z+"
     n_y: "@in Z+"
     a_min: "@in R+"
     a_max: "@in R+"
-    H_min: "@in R+"
-    H_max: "@in R+"
     w_min: "@in R+"
     w_max: "@in R+"
 

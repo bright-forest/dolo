@@ -48,16 +48,16 @@ symbols:
     theta: "@in (0,1)"  # consumption weight (alpha in utility)
     kappa: "@in R+"     # housing service scaling
     iota: "@in R+"      # housing service constant
+    n_H: "@in Z+"       # housing grid points (defines XH)
+    H_min: "@in R+"     # housing grid lower bound (defines XH)
+    H_max: "@in R+"     # housing grid upper bound (defines XH)
 
   settings:
     n_a: "@in Z+"
-    n_H: "@in Z+"
     n_w: "@in Z+"
     n_y: "@in Z+"
     a_min: "@in R+"
     a_max: "@in R+"
-    H_min: "@in R+"
-    H_max: "@in R+"
     w_min: "@in R+"
     w_max: "@in R+"
     ue_kwargs: "@in R"  # upper-envelope kwargs (method-specific dict; see settings.yaml)

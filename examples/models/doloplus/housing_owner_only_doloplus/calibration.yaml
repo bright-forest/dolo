@@ -11,6 +11,11 @@ calibration:
     # Housing stage parameters
     phi: 0.07         # housing transaction cost (7%)
 
+    # Housing grid (defines XH = linspace(H_min, H_max, n_H))
+    n_H: 7            # housing grid points
+    H_min: 0.0        # housing grid lower bound
+    H_max: 5.0        # housing grid upper bound
+
     # Consumption stage parameters
     gamma: 2.0        # CRRA coefficient (risk aversion)
     theta: 0.77       # consumption weight in utility (alpha)
