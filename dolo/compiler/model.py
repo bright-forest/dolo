@@ -882,10 +882,39 @@ class Model(SymbolicModel):
             self.__equations__ = None
 
     def set_calibration(self, *pargs, **kwargs):
-        if len(pargs) == 1:
+        if len(pargs) == 1 and not kwargs:
             self.set_calibration(**pargs[0])
+            return
         self.set_changed()
-        self.data["calibration"].update(kwargs)
+
+        from dolang.yaml_nodes import mapping_get, mapping_set, is_mapping_node
+        from yaml.nodes import ScalarNode
+
+        calib_node = mapping_get(self.data, "calibration")
+
+        if calib_node is None:
+            # No calibration block yet — create one
+            from yaml.nodes import MappingNode
+            calib_node = MappingNode(
+                tag="tag:yaml.org,2002:map", value=[]
+            )
+            mapping_set(self.data, "calibration", calib_node)
+
+        if is_mapping_node(calib_node):
+            for k, v in kwargs.items():
+                # Convert value to a ScalarNode
+                if isinstance(v, str):
+                    val_node = ScalarNode(
+                        tag="tag:yaml.org,2002:str", value=v
+                    )
+                else:
+                    val_node = ScalarNode(
+                        tag="tag:yaml.org,2002:float", value=str(v)
+                    )
+                mapping_set(calib_node, k, val_node)
+        else:
+            # Fallback for dict-based data (shouldn't normally happen)
+            calib_node.update(kwargs)
 
     @property
     def calibration(self):
