@@ -16,6 +16,25 @@ import re
 from typing import Dict, List, Optional, Set
 
 
+# ---------------------------------------------------------------------------
+# Perch-tag glyph normalization (defensive — also done in dolang parse_string)
+# ---------------------------------------------------------------------------
+_PERCH_GLYPH_PATTERNS = [
+    (re.compile(r'\[<-\]'), '[_arvl]'),
+    (re.compile(r'\[->\]'), '[_cntn]'),
+    (re.compile(r'\[-\]'),  '[_dcsn]'),
+    (re.compile(r'\[<\]'),  '[_arvl]'),
+    (re.compile(r'\[>\]'),  '[_cntn]'),
+]
+
+
+def _normalize_perch_glyphs(text: str) -> str:
+    """Normalize glyph/arrow perch tags to canonical named tags."""
+    for pattern, replacement in _PERCH_GLYPH_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
 # =============================================================================
 # PERCH → TIME CONVERSION
 # =============================================================================
@@ -47,6 +66,9 @@ def perch_to_time(
     Returns:
         Equation string with time indices
     """
+    # Normalize any glyph/arrow tags before regex matching.
+    equation = _normalize_perch_glyphs(equation)
+
     poststates: Set[str] = set(symbol_groups.get("poststates", []))
     prestates: Set[str] = set(prestate_rename.keys())
 
@@ -109,7 +131,12 @@ def shift_perch_tags(equation: str, offsets: Dict[str, int]) -> str:
       [_arvl] → [t+offsets[_arvl]]
       [_dcsn] → [t+offsets[_dcsn]]
       [_cntn] → [t+offsets[_cntn]]
+
+    Also accepts glyph aliases [<], [>], [<-], [-], [->] via normalization.
     """
+    # Normalize any glyph/arrow tags before regex matching.
+    equation = _normalize_perch_glyphs(equation)
+
     pattern = r"\[(_arvl|_dcsn|_cntn)\]"
 
     def replace_tag(match: re.Match) -> str:

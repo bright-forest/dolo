@@ -20,7 +20,13 @@ from typing import Dict, Tuple
 # =============================================================================
 # Maps Dolo+ perch tags to Dolo time offsets relative to [t]
 #
-# Dolo+ uses perch-indexed notation:  x[_arvl], x[_dcsn], x[_cntn]
+# Canonical named tags:   x[_arvl],  x[_dcsn],  x[_cntn]
+# Preferred glyph tags:   x[<],      (unmarked), x[>]
+# Arrow aliases:          x[<-],     x[-],       x[->]
+#
+# Glyph/arrow tags are normalized to canonical named tags upstream
+# (see dolang.grammar.normalize_perch_glyphs).
+#
 # Dolo uses time-indexed notation:    x[t-1],   x[t],     x[t+1]
 
 PERCH_TO_TIME_OFFSET: Dict[str, int] = {
