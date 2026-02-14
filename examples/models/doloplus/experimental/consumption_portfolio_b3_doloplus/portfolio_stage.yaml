@@ -56,12 +56,12 @@ equations:
 
   # All shocks are realized after the portfolio decision.
   dcsn_to_cntn_transition: |
-    m = exp(y) + k*(shr[_dcsn]*Risky + (1-shr[_dcsn])*Rf)
+    m = exp(y) + k*(shr*Risky + (1-shr)*Rf)
 
   cntn_to_dcsn_mover:
     Bellman: |
-      V[_dcsn] = max_{shr}(E_{y,Risky}(V[_cntn]))
+      V = max_{shr}(E_{y,Risky}(V[>]))
 
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = V[_dcsn]
+      V[<] = V

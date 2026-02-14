@@ -40,9 +40,9 @@ symbols:
     m: "@in R+"
 
   values:
-    V[_arvl]: "@in R"  # should this be extended reals (CDC says no; AAS will think about it)
-    V[_dcsn]: "@in R"
-    V[_cntn]: "@in R"
+    V[<]: "@in R"  # should this be extended reals (CDC says no; AAS will think about it)
+    V: "@in R"
+    V[>]: "@in R"
  
   parameters:
     Rfree: "@in R++"
@@ -55,17 +55,17 @@ equations:
   cntn_to_dcsn_mover:
     Bellman: | # At the point of the decision perch, share is a control variable.
       # The value function is defined as the maximum expected value of the continuation stage,
-      # V[_dcsn] is syntactic sugar for V_fn_dcsn(k[_dcsn]) (where see below for k)
-      V[_dcsn] = max_{shr} E[_dcsn](V[_cntn])      # This defines the shr[_dcsn] function
-      shr[_dcsn] = argmax_{shr} E[_dcsn](V[_cntn]) # semantic parser: knows this is V_fn_cntn(m[_cntn]) because the parser know how to interpet the dcsn_to_cntntransition equation
+      # V is syntactic sugar for V_fn_dcsn(k) (where see below for k)
+      V = max_{shr} E(V[>])      # This defines the shr function
+      shr = argmax_{shr} E(V[>]) # semantic parser: knows this is V_fn_cntn(m[>]) because the parser know how to interpet the dcsn_to_cntntransition equation
 
   arvl_to_dcsn_transition: | # Nothing happens to k between the arrival and decision perch
-    k = a    # Akshay wants [_dcsn] here to make the parsing easier; CDC thinks eventually they should go (the equation should be k = a)
+    k = a    # Akshay wants perch tag here to make the parsing easier; CDC thinks eventually they should go (the equation should be k = a)
 
   # All shocks are realized after the portfolio decision.
-  dcsn_to_cntn_transition: | # again CDC thinks eventually we will not want the [_cntn]/[_dcsn] 
-    m = exp(ylog) + k*(shr*exp(riskylog) + (1-shr)*Rfree) 
+  dcsn_to_cntn_transition: | # again CDC thinks eventually we will not want the [>]/unmarked tags
+    m = exp(ylog) + k*(shr*exp(riskylog) + (1-shr)*Rfree)
 
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = V[_dcsn] # the parser knows that this is actually V_fn_arvl(a[_arvl]) = V_fn_dcsn(k[_arvl]) because the semantic parser knows to apply the arvl_to_dcsn_transition equation (except on measure 0 sets)
+      V[<] = V # the parser knows that this is actually V_fn_arvl(a[<]) = V_fn_dcsn(k[<]) because the semantic parser knows to apply the arvl_to_dcsn_transition equation (except on measure 0 sets)

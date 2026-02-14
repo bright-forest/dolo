@@ -68,26 +68,26 @@ equations:
     # Shock is realized between arvl and dcsn, so fold it into the dcsn resources.
     # This mirrors the FUES implementation where the housing-choice stage's decision
     # problem is conditioned on current income.
-    w[_dcsn] = (1 + r)*b[_arvl] + z_vals[y]
+    w = (1 + r)*b[<] + z_vals[y]
 
   # Decision to Continuation: housing choice with transaction costs
   # w = (1+r)*a + z(y) + H - (1+phi*I_{H_nxt!=H})*H_nxt
   dcsn_to_cntn_transition: |
     # Here a_dcsn already includes (1+r)*a + z(y).
-    w[_cntn] = a_dcsn[_dcsn] + H_dcsn[_dcsn] - (1 + phi*(H_choice[_dcsn] != H_dcsn[_dcsn]))*H_choice[_dcsn]
-    H_nxt[_cntn] = H_choice[_dcsn]
-    y[_cntn] = y[_dcsn]
+    w[>] = a_dcsn + H_dcsn - (1 + phi*(H_choice != H_dcsn))*H_choice
+    H_nxt[>] = H_choice
+    y[>] = y
 
   # Backward mover: discrete choice over housing
   cntn_to_dcsn_mover:
     Bellman: |
-      V[_dcsn] = max_{H_choice}(V[_cntn])
+      V = max_{H_choice}(V[>])
     ShadowBellman: |
-      dV[_dcsn] = dV[_cntn]
+      dV = dV[>]
 
   # Expectation over income shocks
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = E_{y|y_pre}(V[_dcsn])
+      V[<] = E_{y|y_pre}(V)
     ShadowBellman: |
-      dV[_arvl] = E_{y|y_pre}(dV[_dcsn])
+      dV[<] = E_{y|y_pre}(dV)

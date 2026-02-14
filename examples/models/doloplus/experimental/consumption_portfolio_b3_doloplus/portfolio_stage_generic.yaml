@@ -63,11 +63,11 @@ symbols:
     m: "@in R+"             # unified: 𝓧ₑ = R++ (continuation state space)
 
   values:
-    V[_arvl]: "@in R"       # unified: 𝒜(xₐ) - arrival value function
+    V[<]: "@in R"           # unified: 𝒜(xₐ) - arrival value function
                             # this is syntactic sugar for V_fn_arvl(lqd)
-    V[_dcsn]: "@in R"       # unified: 𝒱(xᵥ) - decision value function
+    V: "@in R"              # unified: 𝒱(xᵥ) - decision value function
                             # this is syntactic sugar for V_fn_dcsn(liq)
-    V[_cntn]: "@in R"       # unified: ℰ(xₑ) - continuation value function
+    V[>]: "@in R"           # unified: ℰ(xₑ) - continuation value function
                             # this is syntactic sugar for V_fn_cntn(m)
  
   parameters:               # unified: 𝔭 - fixed parameters
@@ -89,7 +89,7 @@ equations:
   # and, in VFI or PFI, the whole game is to FIND the 𝜋 (here: shr) that maximizes
 
   # The implication is that, in a dcsn perch, our expectations operator must include both the state AND control variables
-  # e.g., E[_dcsn](V[_cntn]) means evaluate the cntn value function at the decision perch
+  # e.g., E(V[>]) means evaluate the cntn value function at the decision perch
   # note that the expectation is always taken with respect to BOTH state AND control variables (if any)
   #
   # The state tuple and control tuple (if any) are attributes of the perch, so do not need to be explicitly specified
@@ -100,8 +100,8 @@ equations:
     # Here: gᵥₑ(liq_state, shr, (RiskyShk, TranShk)) = m
     # Note: r(xᵥ, 𝜋) = 0 (no stage reward) and β(xᵥ) = 1 (unit discount)
     Bellman: |
-      V[_dcsn]   =    max_{shr} E[_dcsn](V[_cntn]) # unified: 𝒱(xᵥ) = max_𝜋 E_ζ[ℰ(xₑ)]
-      shr[_dcsn] = argmax_{shr} E[_dcsn](V[_cntn]) # unified: policy function π*(xᵥ)
+      V   =    max_{shr} E(V[>]) # unified: 𝒱(xᵥ) = max_𝜋 E_ζ[ℰ(xₑ)]
+      shr = argmax_{shr} E(V[>]) # unified: policy function π*(xᵥ)
 
   arvl_to_dcsn_transition: |
     # unified: xᵥ = gₐᵥ(xₐ) - in this stage, identity map (no shock between arrival and decision)

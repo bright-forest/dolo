@@ -49,29 +49,29 @@ symbols:
 
 equations:
   arvl_to_dcsn_transition: |
-    w = exp(y) + b  # same as g_[_dcsn] = exp(y) + b[_arvl], but we don't need it because 
+    w = exp(y) + b  # same as g = exp(y) + b[<], but we don't need it because
 
   dcsn_to_cntn_transition: |
     a = w - c
   
   cntn_to_dcsn_transition: |
-    w_fn[_cntn] = a + c[_cntn]
+    w_fn[>] = a + c[>]
 
   
 
   cntn_to_dcsn_mover:
     Bellman: |
-      V[_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V[_cntn])  # c here is an argument 
+      V = max_{c}((c^(1-γ))/(1-γ) + β*V[>])  # c here is an argument
     InvEuler: |
-      c_consumed = (β*dV[_cntn])^(-1/γ)
+      c_consumed = (β*dV[>])^(-1/γ)
     ShadowBellman: |
-      dV[_dcsn] = (c[_dcsn])^(-γ)
+      dV = (c)^(-γ)
 
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = E_{y}(V[_dcsn])
+      V[<] = E_{y}(V)
     ShadowBellman: |
-      dV[_arvl] = E_{y}(dV[_dcsn])
+      dV[<] = E_{y}(dV)
 
 domain:
   w: [w_domain_min, w_domain_max]
@@ -110,8 +110,8 @@ dolo_plus:
       "_cntn": 1
     shift_rules:
       canonical_slot: {c: 0}
-      allow: {c: [_cntn]}
-      disallow: {c: [_arvl]}
+      allow: {c: [>]}
+      disallow: {c: [<]}
 
   operators:
     E_y: {over: y, default_location: a}

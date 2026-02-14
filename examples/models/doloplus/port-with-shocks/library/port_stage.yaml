@@ -40,9 +40,9 @@ symbols:
     m: "@in Xm"
 
   values:
-    V[_arvl]: "@in R"
-    V[_dcsn]: "@in R"
-    V[_cntn]: "@in R"
+    V[<]: "@in R"
+    V: "@in R"
+    V[>]: "@in R"
 
   parameters:
     R: "@in R++"
@@ -59,18 +59,18 @@ equations:
 
   # Joint post-decision shocks realized in the dcsn→cntn transition:
   dcsn_to_cntn_transition: |
-    m = k_d*(ς[_dcsn]*Ψ + (1-ς[_dcsn])*R) + θ
+    m = k_d*(ς*Ψ + (1-ς)*R) + θ
 
   # Decision value: max-over-expectation (post-decision shocks).
   cntn_to_dcsn_mover:
     Bellman: |
-      V[_dcsn] = max_{ς}(E_{Ψ,θ}(V[_cntn]))
-      ς[_dcsn] = argmax_{ς}(E_{Ψ,θ}(V[_cntn]))
+      V = max_{ς}(E_{Ψ,θ}(V[>]))
+      ς = argmax_{ς}(E_{Ψ,θ}(V[>]))
 
   # No expectation at arrival (deterministic arvl→dcsn):
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = V[_dcsn]
+      V[<] = V
 
 dolo_plus:
   dialect: adc-stage

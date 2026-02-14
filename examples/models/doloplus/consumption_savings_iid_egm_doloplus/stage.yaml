@@ -68,16 +68,16 @@ equations:
   # these are not new functions because this statement is true by equality; rather it defines implicitly a function 
 
   # Dolo (horse): `auxiliary_direct_egm`
-  # Dolo+ note (keep this detail): in DDSL-CORE this is “define g_ve as w,c \mapsto a, via the following”.
-  # Interpreted by DDSL-CORE as:
-  # - a[_dcsn] = g_ve[x_dcsn] = w - c[_dcsn]
-  # - x_cntn = x_dcsn - c[_dcsn]
+  # Dolo+ note (keep this detail): in T core (formerly “DDSL-CORE”) this is “define g_ve as w,c \mapsto a, via the following”.
+  # Interpreted by T core as:
+  # - a = g_ve[x_dcsn] = w - c
+  # - x_cntn = x_dcsn - c
   # AAS naming note: we usually use `g_ve` to refer to `a_fn`.
   dcsn_to_cntn_transition: |
     a = w - c
 
   # Dolo (horse): `reverse_state`
-  # Akshay note: needs thought / confirm LHS perch (foundations uses `w[_dcsn]`).
+  # Akshay note: needs thought / confirm LHS perch (foundations uses `w` at decision perch).
   cntn_to_dcsn_transition: |
     w = a + c
   # above is not defining a transition euation so it needs to be defined as new function of the cntn
@@ -90,11 +90,11 @@ equations:
   cntn_to_dcsn_opr:
     # Dolo (horse): value recursion is typically implicit in dtcc/EGM YAML (kept explicit here for Dolo+).
     Bellman: |
-      V[_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V[_cntn])
+      V = max_{c}((c^(1-γ))/(1-γ) + β*V[>])
     # - V_dcsn = V_fn_dcsn[x_dcsn] = max_{c}((c^(1-γ))/(1-γ) + β*V_fn_cntn[x_cntn])
-    # AAS naming note: we usually use `V[_dcsn]` to refer to `V_dcsn_fn`.
-    # V[_cntn] = V_fn_cntn[x_cntn] = V_fn_cntn[a] = V_fn_cntn[g_ve(w,c)] 
-    # The V[_cntn] is interpreted by syntax sugar as V_fn_cntn[x_cntn], which be definition of
+    # AAS naming note: we usually use `V` (decision perch, unmarked) to refer to `V_dcsn_fn`.
+    # V[>] = V_fn_cntn[x_cntn] = V_fn_cntn[a] = V_fn_cntn[g_ve(w,c)]
+    # The V[>] is interpreted by syntax sugar as V_fn_cntn[x_cntn], which be definition of
     # the state variable is V_fn_cntn[a]. Then the transition function is implicitly defined
     # by the dcsn_to_cntn_transition *as something that takes to args (not necc the consumption function)
     # thus we have V_fn_cntn[a] = V_fn_cntn[g_ve(w,c)]. VERY STRICTL, A is also an argument in the 
@@ -103,24 +103,24 @@ equations:
 
     # Dolo (horse): `direct_response_egm` (policy update from expected marginal value)
     InvEuler: |
-      c[_cntn] = (β*dV[_cntn])^(-1/γ)
-    # Interpreted by DDSL-CORE as:
+      c[>] = (β*dV[>])^(-1/γ)
+    # Interpreted by T core as:
     # - c_fn_cntn[x_cntn] = (β*dV_fn_cntn[x_cntn])^(-1/γ)
-    # AAS naming note: we usually use `c_fn_cntn` to refer to `c_cntn_fn`.
+    # AAS naming note: we usually use `c[>]` to refer to `c_cntn_fn`.
 
     # Dolo (horse): expectation integrand (RHS)
     MarginalBellman: |
-      dV[_dcsn] = (c[_dcsn])^(-γ)
+      dV = (c)^(-γ)
 
 
   # Dolo (horse): `expectation` (produces the expected marginal object, often called `mr`)
   dcsn_to_arvl_opr:
     # Dolo (horse): value expectation is typically implicit in dtcc/EGM YAML (kept explicit here for Dolo+).
     Bellman: |
-      V[_arvl] = E_{y}(V[_dcsn])
+      V[<] = E_{y}(V)
     # Dolo (horse): expectation output (LHS)
     MarginalBellman: |
-      dV[_arvl] = r * E_{y}(dV[_dcsn])
+      dV[<] = r * E_{y}(dV)
 
 dolo_plus:
   dialect: adc-stage

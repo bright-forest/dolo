@@ -72,25 +72,25 @@ equations:
 
   # Reverse mapping for EGM
   cntn_to_dcsn_transition: |
-    w_dcsn[_cntn] = a_nxt + c_fn[_cntn]
+    w_dcsn[>] = a_nxt + c_fn[>]
 
   # Backward mover: Bellman + EGM
   cntn_to_dcsn_mover:
     # Utility: Cobb-Douglas in consumption and housing services
     # u(c, H) = ((c^theta * (kappa*H + iota)^(1-theta))^(1-gamma))/(1-gamma)
     Bellman: |
-      V[_dcsn] = max_{c}(((c^theta * (kappa*H_nxt + iota)^(1-theta))^(1-gamma))/(1-gamma) + beta*V[_cntn]) 
+      V = max_{c}(((c^theta * (kappa*H_nxt + iota)^(1-theta))^(1-gamma))/(1-gamma) + beta*V[>])
     InvEuler: |
-      c_fn[_cntn] = (beta*dV[_cntn] / (theta * (kappa*H_nxt + iota)^((1-theta)*(1-gamma))))^(-1/(theta*(1-gamma) + gamma - 1))
+      c_fn[>] = (beta*dV[>] / (theta * (kappa*H_nxt + iota)^((1-theta)*(1-gamma))))^(-1/(theta*(1-gamma) + gamma - 1))
     ShadowBellman: |
-      dV[_cntn] = theta * c_fn[_cntn]^(theta*(1-gamma)-1) * (kappa*H_nxt + iota)^((1-theta)*(1-gamma))
+      dV[>] = theta * c_fn[>]^(theta*(1-gamma)-1) * (kappa*H_nxt + iota)^((1-theta)*(1-gamma))
 
       # from the above, the implicit EGM algo is to build..
 
   # Decision to Arrival: identity (no shock integration needed within stage)
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = V[_dcsn]
+      V[<] = V
     ShadowBellman: |
-      dV[_arvl] = dV[_dcsn]
+      dV[<] = dV
 

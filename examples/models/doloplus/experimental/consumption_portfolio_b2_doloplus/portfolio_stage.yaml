@@ -41,13 +41,13 @@ equations:
     k = a
 
   dcsn_to_cntn_transition: |
-    b = k*(shr[_dcsn]*Risky + (1-shr[_dcsn])*Rf)
+    b = k*(shr*Risky + (1-shr)*Rf)
 
   cntn_to_dcsn_mover:
     Bellman: |
-      V[_dcsn] = max_{shr}(E_{Risky}(V[_cntn]))
+      V = max_{shr}(E_{Risky}(V[>]))
 
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = V[_dcsn]
+      V[<] = V
 

@@ -4,11 +4,11 @@
 # =========================================================
 #
 # Original (S = E ∘ max):
-#   V[_arvl] = E_y[ max_c{ u(c) + β*V'[_arvl] } ]
+#   V[<] = E_y[ max_c{ u(c) + β*V'[<] } ]
 #   The expectation is OUTSIDE the maximization.
 #
 # Conjugate (Ŝ = max ∘ E):
-#   V[_arvl] = max_c{ u(c) + β*E_y[V'[_arvl]] }
+#   V[<] = max_c{ u(c) + β*E_y[V'[<]] }
 #   The expectation is INSIDE the maximization (in the continuation value).
 #
 # Key insight: The expectation moves INSIDE the decision problem.
@@ -68,53 +68,53 @@ equations:
   # is what changes in the conjugate form.
 
   arvl_to_dcsn_transition: |
-    w[_dcsn] = exp(y[_dcsn]) + b[_arvl]*r
+    w = exp(y) + b[<]*r
 
   dcsn_to_cntn_transition: |
-    a[_cntn] = w[_dcsn] - c[_dcsn]
+    a[>] = w - c
 
   cntn_to_dcsn_transition: |
-    w[_dcsn] = a[_cntn] + c[_dcsn]
+    w = a[>] + c
 
   # ===========================================================================
   # MOVERS (Backward Operators) - THE KEY DIFFERENCE
   # ===========================================================================
   #
   # ORIGINAL STRUCTURE:
-  #   cntn_to_dcsn_mover: V[_dcsn] = max_c{ u(c) + β*V[_cntn] }
-  #   dcsn_to_arvl_mover: V[_arvl] = E_y(V[_dcsn])
-  #   Combined: V[_arvl] = E_y[ max_c{ u(c) + β*V[_cntn] } ]
+  #   cntn_to_dcsn_mover: V = max_c{ u(c) + β*V[>] }
+  #   dcsn_to_arvl_mover: V[<] = E_y(V)
+  #   Combined: V[<] = E_y[ max_c{ u(c) + β*V[>] } ]
   #
   # CONJUGATE STRUCTURE:
-  #   cntn_to_dcsn_mover: V[_dcsn] = max_c{ u(c) + β*E_y(V[_cntn]) }
+  #   cntn_to_dcsn_mover: V = max_c{ u(c) + β*E_y(V[>]) }
   #                                                ^^^^
   #                       Expectation is INSIDE the max!
-  #   dcsn_to_arvl_mover: V[_arvl] = V[_dcsn]  (identity)
-  #   Combined: V[_arvl] = max_c{ u(c) + β*E_y[V[_cntn]] }
+  #   dcsn_to_arvl_mover: V[<] = V  (identity)
+  #   Combined: V[<] = max_c{ u(c) + β*E_y[V[>]] }
   #
   # The agent sees a SMOOTH continuation value (expectation already computed)
   # ===========================================================================
 
   cntn_to_dcsn_mover:
     # CONJUGATE: Expectation is INSIDE the decision problem
-    # The continuation value E_y(V[_cntn]) is smooth, making optimization easier
+    # The continuation value E_y(V[>]) is smooth, making optimization easier
     Bellman: |
-      V[_dcsn] = max_{c}((c[_dcsn]^(1-γ))/(1-γ) + β*E_{y}(V[_cntn]))
+      V = max_{c}((c^(1-γ))/(1-γ) + β*E_{y}(V[>]))
     
     # EGM inverse: marginal value of the expected continuation
     InvEuler: |
-      c[_cntn] = (β*E_{y}(dV[_cntn]))^(-1/γ)
+      c[>] = (β*E_{y}(dV[>]))^(-1/γ)
     
     # Shadow value at decision
     ShadowBellman: |
-      dV[_dcsn] = (c[_dcsn])^(-γ)
+      dV = (c)^(-γ)
 
   dcsn_to_arvl_mover:
     # CONJUGATE: Identity (no expectation here - it's inside the decision)
     Bellman: |
-      V[_arvl] = V[_dcsn]
+      V[<] = V
     ShadowBellman: |
-      dV[_arvl] = dV[_dcsn]
+      dV[<] = dV
 
 # Domain + options
 domain:
@@ -157,8 +157,8 @@ dolo_plus:
       "_cntn": 1
     shift_rules:
       canonical_slot: {c: 0}
-      allow: {c: [_cntn]}
-      disallow: {c: [_arvl]}
+      allow: {c: [>]}
+      disallow: {c: [<]}
 
   # CONJUGATE: The expectation operator now appears INSIDE the decision mover
   operators:
@@ -175,9 +175,9 @@ dolo_plus:
     dcsn_to_arvl_mover: T_da
 
   inter_stage_links:
-    lead(x[_arvl]): x[_cntn]
-    lead(V[_arvl]): V[_cntn]
-    lead(dV[_arvl]): dV[_cntn]
+    lead(x[<]): x[>]
+    lead(V[<]): V[>]
+    lead(dV[<]): dV[>]
 
   # ===========================================================================
   # SEMICONJUGACY DOCUMENTATION
@@ -201,17 +201,17 @@ dolo_plus:
 
     original_operator: |
       S = E_y ∘ max_c
-      cntn_to_dcsn_mover: V[_dcsn] = max_c{ u(c) + β*V[_cntn] }
-      dcsn_to_arvl_mover: V[_arvl] = E_y(V[_dcsn])
+      cntn_to_dcsn_mover: V = max_c{ u(c) + β*V[>] }
+      dcsn_to_arvl_mover: V[<] = E_y(V)
 
     conjugate_operator: |
       Ŝ = max_c ∘ E_y
-      cntn_to_dcsn_mover: V[_dcsn] = max_c{ u(c) + β*E_y(V[_cntn]) }
-      dcsn_to_arvl_mover: V[_arvl] = V[_dcsn]
+      cntn_to_dcsn_mover: V = max_c{ u(c) + β*E_y(V[>]) }
+      dcsn_to_arvl_mover: V[<] = V
 
     computational_advantage: |
       In the conjugate form:
-      1. First compute E_y[V[_cntn]] for all continuation states
+      1. First compute E_y[V[>]] for all continuation states
       2. Then solve ONE smooth optimization problem
       
       The max is over a differentiable function, enabling:

@@ -27,19 +27,19 @@ symbols:
 
 equations:
   arvl_to_dcsn_transition: |
-    k[_dcsn] = a[_arvl]
+    k = a[<]
 
   dcsn_to_cntn_transition: |
-    b[_cntn] = k[_dcsn]
-    sigma[_cntn] = s[_dcsn]
+    b[>] = k
+    sigma[>] = s
 
   cntn_to_dcsn_mover:
     Bellman: |
-      V[_dcsn] = max_{s}(V[_cntn])
+      V = max_{s}(V[>])
 
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = V[_dcsn]
+      V[<] = V
 
 dolo_plus:
   dialect: adc-stage

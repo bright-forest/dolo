@@ -33,9 +33,9 @@ symbols:
     m: "@in Xm"
 
   values:
-    V[_arvl]: "@in R"
-    V[_dcsn]: "@in R"
-    V[_cntn]: "@in R"
+    V[<]: "@in R"
+    V: "@in R"
+    V[>]: "@in R"
 
   parameters:
     R: "@in R++"
@@ -63,12 +63,12 @@ equations:
   # No choice ⇒ decision value is just an expectation over the post-decision shock.
   cntn_to_dcsn_mover:
     Bellman: |
-      V[_dcsn] = E_{θ}(V[_cntn])
+      V = E_{θ}(V[>])
 
   # No expectation at arrival (deterministic arvl→dcsn):
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = V[_dcsn]
+      V[<] = V
 
 dolo_plus:
   dialect: adc-stage
@@ -89,7 +89,7 @@ dolo_plus:
   # Perch index aliases (defaults)
   validation:
     index_aliases:
-      _arvl: -1
-      _dcsn: 0
-      _cntn: 1
+      "<": -1
+      "": 0
+      ">": 1
 

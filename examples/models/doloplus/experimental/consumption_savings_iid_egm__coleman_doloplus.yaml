@@ -8,7 +8,7 @@ symbols:
   poststates: [a]             # same role as Dolo poststate (horse uses both `a[t]` and `a[t-1]`)
   controls: [c]               # same role as Dolo control
   # expectations: [mr]       # DROPPED in Dolo+ source (present in the Dolo horse)
-  values: [V]                 # NEW (perch value objects, e.g. `V[_arvl]`, `V[_dcsn]`, `V[_cntn]`; implicit in Dolo EGM)
+  values: [V]                 # NEW (perch value objects, e.g. V[<], V, V[>]; implicit in Dolo EGM)
   shadow_value: [dV]          # NEW (perch shadow values; Dolo’s `mr` corresponds to discounted expected marginal value objects)
   parameters: [β, γ, σ, ρ, r]
 
@@ -24,12 +24,12 @@ equations:
 
   cntn_to_dcsn_mover:           # Dolo: direct_response_egm (+ expectation integrand)\
     MarginalBellman: |
-      dV_fn[_h] = E_{y}*r*(c[_cntn])^(-γ) 
+      dV_fn[_h] = E_{y}*r*(c[>])^(-γ)
     InvEuler: |                 # Dolo: direct_response_egm (policy update from expected marginal value)
-      c[_dcsn] = (β*dV[_dcsn])^(-1/γ)
+      c = (β*dV)^(-1/γ)
 
   dcsn_to_arvl_mover:         # Dolo: expectation (produces mr)
-      c[_arvl] = c[_dcsn]
+      c[<] = c
 
 calibration:
   β: 0.96

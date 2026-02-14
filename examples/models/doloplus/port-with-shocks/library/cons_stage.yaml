@@ -28,14 +28,14 @@ symbols:
     c: "@in R+"
 
   values:
-    V[_arvl]: "@in R"
-    V[_dcsn]: "@in R"
-    V[_cntn]: "@in R"
+    V[<]: "@in R"
+    V: "@in R"
+    V[>]: "@in R"
 
   values_marginal:
-    dV[_arvl]: "@in R+"
-    dV[_dcsn]: "@in R+"
-    dV[_cntn]: "@in R+"
+    dV[<]: "@in R+"
+    dV: "@in R+"
+    dV[>]: "@in R+"
 
   parameters:
     β: "@in (0,1)"
@@ -55,29 +55,29 @@ equations:
     m_d = m
 
   dcsn_to_cntn_transition: |  # this defines the g_ve function
-    a = m_d - c[_dcsn]
+    a = m_d - c
 
   # BACKWARD ITERATION BELOW
   cntn_to_dcsn_mover:
     Bellman: |
       u = (c^(1-ρ))/(1-ρ) # this is just an arbitary equation -- ie a string replacement operation . the question whether we want to be able to define arbitrary *function* not just of the state, but of some variable. 
-      V[_dcsn] = max_{c}u + β*V[_cntn]) # V[_dcsn] = V_fn_dcsn(x_dcsn) = V_fn_dcsn(m_d) 
-      c[_dcsn] = argmax_{c}((c^(1-ρ))/(1-ρ) + β*V[_cntn]) #!!IMPORTANT!!: NOTE that even with the consumed function c[_cntn] defined below, we still do not explicitly specify how argmax is computed! This is the key to the EGM-style representation.
+      V = max_{c}u + β*V[>]) # V = V_fn_dcsn(x_dcsn) = V_fn_dcsn(m_d)
+      c = argmax_{c}((c^(1-ρ))/(1-ρ) + β*V[>]) #!!IMPORTANT!!: NOTE that even with the consumed function c[>] defined below, we still do not explicitly specify how argmax is computed! This is the key to the EGM-style representation.
     InvEuler: |
-      c[_cntn] = (β*dV[_cntn])^(-1/ρ)
+      c[>] = (β*dV[>])^(-1/ρ)
     MarginalBellman: |
-      dV[_dcsn] = (c[_dcsn])^(-ρ)
+      dV = (c)^(-ρ)
     cntn_to_dcsn_transition: |
-      m_d[_cntn] = a + c[_cntn]                     # Reverse mapping used by EGM-style representations:
+      m_d[>] = a + c[>]                     # Reverse mapping used by EGM-style representations:
 
 
 
   # Deterministic arvl→dcsn:
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = V[_dcsn]
+      V[<] = V
     ShadowBellman: |
-      dV[_arvl] = dV[_dcsn]
+      dV[<] = dV
 
 dolo_plus:
   dialect: adc-stage
@@ -109,7 +109,7 @@ dolo_plus:
   # Perch index aliases (defaults)
   validation:
     index_aliases:
-      _arvl: -1
-      _dcsn: 0
-      _cntn: 1
+      "<": -1
+      "": 0
+      ">": 1
 

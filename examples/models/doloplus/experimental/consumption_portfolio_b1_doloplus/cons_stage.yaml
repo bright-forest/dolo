@@ -59,27 +59,27 @@ symbols:
 
 equations:
   arvl_to_dcsn_transition: |
-    w[_dcsn] = exp(y[_dcsn]) + b[_arvl]*(sigma[_arvl]*R[_dcsn] + (1-sigma[_arvl])*Rf)
+    w = exp(y) + b[<]*(sigma[<]*R + (1-sigma[<])*Rf)
 
   dcsn_to_cntn_transition: |
-    a[_cntn] = w[_dcsn] - c[_dcsn]
+    a[>] = w - c
 
   cntn_to_dcsn_transition: |
-    w[_dcsn] = a[_cntn] + c[_dcsn]
+    w = a[>] + c
 
   cntn_to_dcsn_mover:
     Bellman: |
-      V[_dcsn] = max_{c}((c[_dcsn]^(1-γ))/(1-γ) + β*V[_cntn])
+      V = max_{c}((c^(1-γ))/(1-γ) + β*V[>])
     InvEuler: |
-      c[_cntn] = (β*dV[_cntn])^(-1/γ)
+      c[>] = (β*dV[>])^(-1/γ)
     ShadowBellman: |
-      dV[_dcsn] = (c[_dcsn])^(-γ)
+      dV = (c)^(-γ)
 
   dcsn_to_arvl_mover:
     Bellman: |
-      V[_arvl] = E_{y}(E_{R}(V[_dcsn]))
+      V[<] = E_{y}(E_{R}(V))
     ShadowBellman: |
-      dV[_arvl] = E_{y}(E_{R}((sigma[_arvl]*R[_dcsn] + (1-sigma[_arvl])*Rf)*dV[_dcsn]))
+      dV[<] = E_{y}(E_{R}((sigma[<]*R + (1-sigma[<])*Rf)*dV))
 
 domain:
   w: [w_domain_min, w_domain_max]
@@ -121,8 +121,8 @@ dolo_plus:
       "_cntn": 1
     shift_rules:
       canonical_slot: {c: 0}
-      allow: {c: [_cntn]}
-      disallow: {c: [_arvl]}
+      allow: {c: [>]}
+      disallow: {c: [<]}
 
   operators:
     E_y: {over: y, default_location: a}
