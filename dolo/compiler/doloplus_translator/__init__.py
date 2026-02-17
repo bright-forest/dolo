@@ -22,10 +22,37 @@ Mapping Tables:
       explore/transformations/<name>/mapping_tables.yaml
 """
 
-from .core import doloplus_to_dolo, load_mapping_tables
+from .core import (
+    doloplus_to_dolo,
+    load_mapping_tables,
+    translate_stage,
+    write_dolo_yaml,
+    validate_dolo_output,
+    strip_equation_comments_from_data,
+    extract_raw_equations,
+)
+
+from .transforms import (
+    build_symbol_to_native_perch,
+    annotate_implicit_perch,
+    state_collapse,
+    lognormal_to_exp,
+)
 
 __all__ = [
-    # Main API
+    # Core pipeline
     "doloplus_to_dolo",
     "load_mapping_tables",
+    # Convenience API
+    "translate_stage",
+    "write_dolo_yaml",
+    "validate_dolo_output",
+    # Preprocessing
+    "strip_equation_comments_from_data",
+    "extract_raw_equations",
+    # Transforms
+    "build_symbol_to_native_perch",
+    "annotate_implicit_perch",
+    "state_collapse",
+    "lognormal_to_exp",
 ]

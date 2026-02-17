@@ -127,6 +127,9 @@ class ConstantProcess(IIDProcess):
 
     def discretize(self, to=None, **kwargs):
 
+        if to is None:
+            to = "iid"
+
         if to == "iid":
             x = self.μ[None, :]
             w = np.array([1.0])

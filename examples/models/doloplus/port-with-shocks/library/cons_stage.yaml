@@ -61,7 +61,7 @@ equations:
   cntn_to_dcsn_mover:
     Bellman: |
       u = (c^(1-ρ))/(1-ρ) # this is just an arbitary equation -- ie a string replacement operation . the question whether we want to be able to define arbitrary *function* not just of the state, but of some variable. 
-      V = max_{c}u + β*V[>]) # V = V_fn_dcsn(x_dcsn) = V_fn_dcsn(m_d)
+      V = max_{c}(u + β*V[>]) # V = V_fn_dcsn(x_dcsn) = V_fn_dcsn(m_d)
       c = argmax_{c}((c^(1-ρ))/(1-ρ) + β*V[>]) #!!IMPORTANT!!: NOTE that even with the consumed function c[>] defined below, we still do not explicitly specify how argmax is computed! This is the key to the EGM-style representation.
     InvEuler: |
       c[>] = (β*dV[>])^(-1/ρ)

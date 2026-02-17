@@ -348,6 +348,159 @@ def transform_equations(
 
 
 # =============================================================================
+# IMPLICIT PERCH ANNOTATION
+# =============================================================================
+
+# Default mapping from symbol group name to native perch tag.
+# This encodes the fundamental dolo-plus rule: perch is implied by the
+# symbol's group membership.
+DEFAULT_GROUP_TO_PERCH: Dict[str, str] = {
+    "prestate":  "_arvl",
+    "states":    "_dcsn",
+    "controls":  "_dcsn",
+    "poststates": "_cntn",
+    "exogenous": "_cntn",
+}
+
+
+def build_symbol_to_native_perch(
+    symbol_groups: Dict[str, List[str]],
+    *,
+    group_to_perch: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
+    """Build a symbol → native perch map from group membership.
+
+    Args:
+        symbol_groups: Dict of group name → symbol list (from model.symbols).
+        group_to_perch: Override mapping from group name to perch tag.
+            Merged on top of ``DEFAULT_GROUP_TO_PERCH``.
+
+    Returns:
+        Dict mapping every known symbol to its native perch tag.
+        Parameters and other groups not in the mapping are omitted.
+    """
+    gtp = dict(DEFAULT_GROUP_TO_PERCH)
+    if group_to_perch:
+        gtp.update(group_to_perch)
+
+    sym_to_perch: Dict[str, str] = {}
+    for group, perch in gtp.items():
+        for sym in symbol_groups.get(group, []):
+            sym_to_perch[sym] = perch
+    return sym_to_perch
+
+
+def annotate_implicit_perch(
+    equation: str,
+    symbol_to_perch: Dict[str, str],
+) -> str:
+    """Annotate bare symbols with their native perch tag.
+
+    Symbols that already carry a bracket tag (``V[>]``, ``c[_cntn]``, etc.)
+    are left unchanged.  Only bare occurrences (no ``[`` immediately after)
+    are annotated.
+
+    This implements the core dolo-plus rule: *perch tags are implied by
+    the native perch of the symbols*.
+
+    Args:
+        equation: Equation string (may mix bare and tagged symbols).
+        symbol_to_perch: Map from symbol name to native perch tag
+            (e.g. ``{"k_d": "_dcsn", "m": "_cntn"}``).
+
+    Returns:
+        Equation with bare symbols annotated.
+
+    Example:
+        >>> annotate_implicit_perch(
+        ...     "m = k_d*(ς*Ψ + (1-ς)*R) + θ",
+        ...     {"m": "_cntn", "k_d": "_dcsn", "ς": "_dcsn",
+        ...      "Ψ": "_cntn", "θ": "_cntn"},
+        ... )
+        "m[_cntn] = k_d[_dcsn]*(ς[_dcsn]*Ψ[_cntn] + (1-ς[_dcsn])*R) + θ[_cntn]"
+    """
+    # Normalize glyph tags first so the negative lookahead works uniformly.
+    equation = _normalize_perch_glyphs(equation)
+
+    # Sort symbols longest-first for safety (word boundaries handle most
+    # cases, but longer-first avoids any edge-case partial overlap).
+    symbols_sorted = sorted(symbol_to_perch.keys(), key=len, reverse=True)
+
+    result = equation
+    for sym in symbols_sorted:
+        perch = symbol_to_perch[sym]
+        # Match symbol at word boundary, NOT already followed by '['
+        pattern = rf'\b{re.escape(sym)}\b(?!\[)'
+        replacement = f'{sym}[{perch}]'
+        result = re.sub(pattern, replacement, result)
+
+    return result
+
+
+# =============================================================================
+# STATE COLLAPSE & LOGNORMAL TRANSFORMS
+# =============================================================================
+
+def state_collapse(
+    equation: str,
+    poststate_to_state: Dict[str, str],
+) -> str:
+    """Rename poststate symbols to their unified state name.
+
+    Operates on symbols that already carry perch tags (i.e., after
+    ``annotate_implicit_perch``).
+
+    Args:
+        equation: Equation string with perch-annotated symbols.
+        poststate_to_state: Mapping from poststate name to state name
+            (e.g. ``{"m": "k_d"}``).
+
+    Returns:
+        Equation with poststates renamed.
+
+    Example:
+        >>> state_collapse("m[_cntn] = k_d[_dcsn]", {"m": "k_d"})
+        "k_d[_cntn] = k_d[_dcsn]"
+    """
+    result = equation
+    for old, new in poststate_to_state.items():
+        # Match old_name followed by a bracket (perch-tagged)
+        pattern = rf'\b{re.escape(old)}\b(\[)'
+        replacement = rf'{new}\1'
+        result = re.sub(pattern, replacement, result)
+    return result
+
+
+def lognormal_to_exp(
+    equation: str,
+    symbol_to_log: Dict[str, str],
+) -> str:
+    """Replace LogNormal-distributed symbols with exp(log-space equivalent).
+
+    Operates on perch-tagged symbols: ``Ψ[_cntn]`` → ``exp(logΨ[_cntn])``.
+
+    Args:
+        equation: Equation string with perch-annotated symbols.
+        symbol_to_log: Mapping from level-space symbol to log-space name
+            (e.g. ``{"Ψ": "logΨ", "θ": "logθ"}``).
+
+    Returns:
+        Equation with LogNormal symbols wrapped in exp().
+
+    Example:
+        >>> lognormal_to_exp("k_d[_dcsn]*Ψ[_cntn]", {"Ψ": "logΨ"})
+        "k_d[_dcsn]*exp(logΨ[_cntn])"
+    """
+    result = equation
+    for sym, log_sym in symbol_to_log.items():
+        # Match sym[...tag...] (symbol followed by bracket content)
+        pattern = rf'\b{re.escape(sym)}\b(\[[^\]]*\])'
+        replacement = rf'exp({log_sym}\1)'
+        result = re.sub(pattern, replacement, result)
+    return result
+
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
@@ -362,4 +515,8 @@ __all__ = [
     "extract_factors",
     "join_equations",
     "transform_equations",
+    "build_symbol_to_native_perch",
+    "annotate_implicit_perch",
+    "state_collapse",
+    "lognormal_to_exp",
 ]

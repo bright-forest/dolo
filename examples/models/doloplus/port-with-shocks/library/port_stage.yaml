@@ -28,13 +28,14 @@ symbols:
     ς: "@in Π"
 
   # Shocks realized after the portfolio decision (post-decision timing).
+  # Joint vector ζ = (Ψ, θ): correlated LogNormals via underlying Normal.
   exogenous:
-    Ψ:
-      - "@in Rp"
-      - "@dist LogNormal(μ_Ψ, σ_Ψ)"
-    θ:
-      - "@in Θ"
-      - "@dist LogNormal(μ_θ, σ_θ)"
+    Ψ: "@in Rp"
+    θ: "@in Θ"
+    ζ:
+      "@dist": Normal
+      Μ: [μ_Ψ, μ_θ]
+      Σ: [[σ_Ψ^2, ρ_ζ*σ_Ψ*σ_θ], [ρ_ζ*σ_Ψ*σ_θ, σ_θ^2]]
 
   poststates:
     m: "@in Xm"
@@ -50,7 +51,7 @@ symbols:
     σ_Ψ: "@in R+"
     μ_θ: "@in R"
     σ_θ: "@in R+"
-    ρ_ζ: "@in [-1,1]"   # placeholder for correlation parameter (not yet wired into @dist here)
+    ρ_ζ: "@in [-1,1]"   # correlation of underlying normals in joint vector ζ
 
 equations:
   # No shocks between arrival and decision:
@@ -75,4 +76,23 @@ equations:
 dolo_plus:
   dialect: adc-stage
   version: 0.1
+
+  # Canonical equation symbols for translator
+  equation_symbols:
+    arvl_to_dcsn_transition: g_ad
+    dcsn_to_cntn_transition: g_de
+    cntn_to_dcsn_mover: T_ed
+    dcsn_to_arvl_mover: T_da
+
+  # Sub-equation symbols within movers
+  mover_sub_equations:
+    T_ed:
+      Bellman: T_ed_Bellman
+    T_da:
+      Bellman: T_da_Bellman
+
+  # Slot map: prestate → poststate linkage
+  slot_map:
+    prestate: k       # arrival state (investable assets)
+    poststate: m      # continuation state (cash-on-hand after returns + income)
 
