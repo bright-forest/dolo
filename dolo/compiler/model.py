@@ -39,6 +39,10 @@ class SymbolicModel:
             symbols = LoosyDict(equivalences=equivalent_symbols)
             symbols_math = {}  # Sidecar for decorator ASTs (Dolo+ mode)
 
+            # Detect branching kind (needed for symbol parsing decisions)
+            kind_node = mapping_get(self.data, "kind")
+            is_branching = kind_node is not None and scalar_value(kind_node) == "branching"
+
             for sg, seq in mapping_items(symbols_node):
                 # Case 1: Legacy list format - symbols.parameters: [β, γ, r]
                 if isinstance(seq, yaml.nodes.SequenceNode):
@@ -46,6 +50,83 @@ class SymbolicModel:
 
                 # Case 2: Decorated mapping format - symbols.parameters: {β: @in (0,1)}
                 elif isinstance(seq, yaml.nodes.MappingNode):
+
+                    # --- Branching: branch-keyed poststates (spec 0.1l) ---
+                    if sg == "poststates" and is_branching:
+                        branch_poststates = {}
+                        branch_labels = []
+                        flat_names = []
+                        symbols_math[sg] = {}
+                        for branch_node, branch_seq in seq.value:
+                            label = branch_node.value
+                            # Detect nested MappingNode (branch sub-block) vs flat decorated entry
+                            if isinstance(branch_seq, yaml.nodes.MappingNode):
+                                branch_labels.append(label)
+                                branch_ps = {}
+                                for name_node, decor_node in branch_seq.value:
+                                    name = name_node.value
+                                    if name in flat_names:
+                                        raise ValueError(
+                                            f"Poststate '{name}' appears in multiple branches. "
+                                            "Poststate names must be disjoint across branches."
+                                        )
+                                    flat_names.append(name)
+                                    # Parse decorator
+                                    decor_str = None
+                                    if isinstance(decor_node, yaml.nodes.ScalarNode):
+                                        decor_str = decor_node.value
+                                        raw_decor = (decor_str or "").strip()
+                                        if raw_decor.startswith("@"):
+                                            try:
+                                                from dolang.decorator_parser import parse_decorator
+                                                tree = parse_decorator(raw_decor)
+                                                if tree:
+                                                    symbols_math[sg][name] = tree
+                                            except ImportError:
+                                                pass
+                                    branch_ps[name] = decor_str
+                                branch_poststates[label] = branch_ps
+                            else:
+                                # Flat decorated entry in a branching stage (shouldn't happen per spec)
+                                flat_names.append(label)
+                        symbols[sg] = flat_names
+                        self._branch_poststates = branch_poststates
+                        self._branch_labels = branch_labels
+                        continue
+
+                    # --- Branching: branch-keyed values (spec 0.1l) ---
+                    if sg == "values" and is_branching:
+                        flat_names = []
+                        branch_values = {}
+                        symbols_math[sg] = {}
+                        for name_node, decor_node in seq.value:
+                            name = name_node.value
+                            if isinstance(decor_node, yaml.nodes.MappingNode):
+                                # Branch-keyed value (e.g. V_cntn: {work: ..., retire: ...})
+                                bv = {}
+                                for bl_node, bl_decor in decor_node.value:
+                                    bv[bl_node.value] = bl_decor.value if isinstance(bl_decor, yaml.nodes.ScalarNode) else None
+                                branch_values[name] = bv
+                                # Do NOT add to flat_names — branch-keyed values are not flat symbols
+                            else:
+                                flat_names.append(name)
+                                # Parse decorator as usual
+                                if isinstance(decor_node, yaml.nodes.ScalarNode):
+                                    raw_decor = decor_node.value if decor_node.value else ""
+                                    raw_decor = raw_decor.strip()
+                                    if raw_decor.startswith("@"):
+                                        try:
+                                            from dolang.decorator_parser import parse_decorator
+                                            tree = parse_decorator(raw_decor)
+                                            if tree:
+                                                symbols_math[sg][name] = tree
+                                        except ImportError:
+                                            pass
+                        symbols[sg] = flat_names
+                        self._branch_values = branch_values
+                        continue
+
+                    # --- Standard (non-branching) mapping format ---
                     names = []
                     symbols_math[sg] = {}
                     for name_node, decor_node in seq.value:
@@ -89,6 +170,16 @@ class SymbolicModel:
                 else:
                     # Fallback for other node types
                     symbols[sg] = [s.value for s in sequence_values(seq)]
+
+            # --- Branch label consistency validation (spec 0.1l) ---
+            if is_branching and hasattr(self, '_branch_labels'):
+                labels = set(self._branch_labels)
+                if hasattr(self, '_branch_poststates'):
+                    ps_labels = set(self._branch_poststates.keys())
+                    if ps_labels != labels:
+                        raise ValueError(
+                            f"Branch label mismatch: poststates has {ps_labels}, expected {labels}"
+                        )
 
             self.__symbols__ = symbols
             self.__symbols_math__ = symbols_math
@@ -186,7 +277,7 @@ class SymbolicModel:
             # Dolo+ stage-mode flag (opt-in): allows one-level nested sub-equation blocks.
             dp = mapping_get(self.data, "dolo_plus")
             dialect = None if dp is None else scalar_value(mapping_get(dp, "dialect"))
-            is_adc_stage = dialect == "adc-stage"
+            is_adc_stage = dialect == "adc-stage" or self.kind == "branching"
 
             d = dict()
             equations_node = mapping_get_required(self.data, "equations")
@@ -369,22 +460,40 @@ class SymbolicModel:
                     if g in ("arbitrage",):
                         raise Exception("Nested sub-equations are not supported for `arbitrage` blocks.")
 
-                    subeqs = {}
-                    for sub_label, sub_v in mapping_items(v):
-                        if not isinstance(sub_v, yaml.nodes.ScalarNode):
-                            raise Exception(
-                                f"Invalid sub-equation payload type at `{g}.{sub_label}`: {type(sub_v)}"
-                            )
-                        assert sub_v.style == "|"
+                    # --- Branch-keyed transitions (spec 0.1l) ---
+                    if self.kind == "branching" and g == "dcsn_to_cntn_transition":
+                        branch_transitions = {}
+                        for sub_label, sub_v in mapping_items(v):
+                            if not isinstance(sub_v, yaml.nodes.ScalarNode):
+                                raise Exception(
+                                    f"Invalid sub-equation payload type at `{g}.{sub_label}`: {type(sub_v)}"
+                                )
+                            assert sub_v.style == "|"
+                            eqs = parse_string(sub_v, start="assignment_block")
+                            from dolang.perch_resolver import resolve_native_perches
+                            eqs = resolve_native_perches(eqs, self.symbols)
+                            eqs = sanitize(eqs, variables=vars)
+                            branch_transitions[sub_label] = [str_expression(e) for e in eqs.children]
+                        self._branch_transitions = branch_transitions
+                        d[g] = branch_transitions  # Also store in equations dict
+                    else:
+                        # Standard adc-stage sub-equations (mover blocks)
+                        subeqs = {}
+                        for sub_label, sub_v in mapping_items(v):
+                            if not isinstance(sub_v, yaml.nodes.ScalarNode):
+                                raise Exception(
+                                    f"Invalid sub-equation payload type at `{g}.{sub_label}`: {type(sub_v)}"
+                                )
+                            assert sub_v.style == "|"
 
-                        eqs = parse_string(sub_v, start="assignment_block")
-                        # spec_0.1g: resolve bare symbols to indexed variables for adc-stage
-                        from dolang.perch_resolver import resolve_native_perches
-                        eqs = resolve_native_perches(eqs, self.symbols)
-                        eqs = sanitize(eqs, variables=vars)
-                        subeqs[sub_label] = [str_expression(e) for e in eqs.children]
+                            eqs = parse_string(sub_v, start="assignment_block")
+                            # spec_0.1g: resolve bare symbols to indexed variables for adc-stage
+                            from dolang.perch_resolver import resolve_native_perches
+                            eqs = resolve_native_perches(eqs, self.symbols)
+                            eqs = sanitize(eqs, variables=vars)
+                            subeqs[sub_label] = [str_expression(e) for e in eqs.children]
 
-                    d[g] = subeqs
+                        d[g] = subeqs
 
                 else:
                     raise Exception(
@@ -407,6 +516,16 @@ class SymbolicModel:
             #                 eq = decode_complementarity(comp, v+"[t]")[ind]
             #             eqs.append(eq)
             #         d[g] = eqs
+
+            # --- Branch transition label validation (spec 0.1l) ---
+            if self.kind == "branching" and hasattr(self, '_branch_labels') and hasattr(self, '_branch_transitions'):
+                expected = set(self._branch_labels)
+                actual = set(self._branch_transitions.keys())
+                if actual != expected:
+                    raise ValueError(
+                        f"Branch label mismatch in dcsn_to_cntn_transition: "
+                        f"has {actual}, expected {expected} from poststates"
+                    )
 
             self.__equations__ = d
 
@@ -535,6 +654,56 @@ class SymbolicModel:
                     self.__definitions__ = d
 
         return self.__definitions__
+
+    # -------------------------------------------------------------------------
+    # Branching stage support (spec_0.1l)
+    # -------------------------------------------------------------------------
+
+    @property
+    def kind(self):
+        """Stage kind: 'branching', 'adc-stage', or None (vanilla Dolo)."""
+        k = mapping_get(self.data, "kind")
+        if k is not None:
+            return scalar_value(k)
+        # Fallback: check dolo_plus dialect for legacy adc-stage detection
+        dp = mapping_get(self.data, "dolo_plus")
+        if dp is not None:
+            dialect_node = mapping_get(dp, "dialect")
+            if dialect_node is not None:
+                dialect = scalar_value(dialect_node)
+                if dialect == "adc-stage":
+                    return "adc-stage"
+        return None
+
+    @property
+    def branch_control(self):
+        """Branch control type: 'agent', 'nature', or None (non-branching)."""
+        bc = mapping_get(self.data, "branch_control")
+        return scalar_value(bc) if bc is not None else None
+
+    @property
+    def branch_labels(self):
+        """List of branch labels (YAML declaration order), or None."""
+        _ = self.symbols  # Ensure computed
+        return getattr(self, '_branch_labels', None)
+
+    @property
+    def branch_poststates(self):
+        """Dict {label: {name: decorator, ...}}, or None."""
+        _ = self.symbols  # Ensure computed
+        return getattr(self, '_branch_poststates', None)
+
+    @property
+    def branch_values(self):
+        """Dict {value_name: {label: decorator, ...}}, or None."""
+        _ = self.symbols  # Ensure computed
+        return getattr(self, '_branch_values', None)
+
+    @property
+    def branch_transitions(self):
+        """Dict {label: [equation_strings]}, or None."""
+        _ = self.equations  # Ensure computed
+        return getattr(self, '_branch_transitions', None)
 
     @property
     def name(self):

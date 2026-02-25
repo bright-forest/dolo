@@ -122,6 +122,13 @@ def doloplus_to_dolo(
     if missing:
         raise ValueError(f"Missing required mapping table keys: {', '.join(missing)}")
 
+    # Step 0: Gate branching stages (parse-only, no translation yet)
+    if hasattr(model_plus, 'kind') and model_plus.kind == "branching":
+        raise NotImplementedError(
+            f"Branching stage '{model_plus.name}' parsed successfully, "
+            "but translation to vanilla dolo is not yet supported (spec 0.1l parse-only)."
+        )
+
     # Step 1: Validate
     validate_model(model_plus)
 

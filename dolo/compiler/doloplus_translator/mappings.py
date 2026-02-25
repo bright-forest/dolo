@@ -66,6 +66,7 @@ SYMBOL_GROUPS_KEEP: Tuple[str, ...] = (
     "poststates",
     "controls",
     "parameters",
+    "values_marginal",
 )
 
 # Groups typically dropped:
