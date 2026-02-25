@@ -1,0 +1,61 @@
+name: OwnerConsumptionChoice
+
+symbols:
+  spaces:
+    Xa: "@def R+"
+    XH: "@def linspace(H_min, H_max, n_H)"
+    XY: "@def {0, ..., n_y - 1}"
+
+  prestate:
+    w_oc: "@in Xa"
+    H_nxt: "@in XH"
+    y_o: "@in XY"
+
+  states:
+    w_oc: "@in Xa"
+    H_nxt: "@in XH"
+    y_o: "@in XY"
+
+  poststates:
+    b_o: "@in Xa"
+    H_nxt: "@in XH"
+    y_o: "@in XY"
+
+  controls:
+    c: "@in R+"
+
+  exogenous: {}
+
+  values:
+    V[>]: "@in [-inf, inf)"
+    V[<]: "@in [-inf, inf)"
+    V: "@in [-inf, inf)"
+
+  values_marginal:
+    dV[>]: "@in R+"
+    dV: "@in R+"
+
+  parameters: [beta, gamma, rho, theta, kappa, iota, n_H, H_min, H_max]
+
+equations:
+  arvl_to_dcsn_transition: |
+    w_oc = w_oc[<]
+    H_nxt = H_nxt[<]
+    y_o = y_o[<]
+
+  dcsn_to_cntn_transition: |
+    b_o[>] = w_oc - c
+    H_nxt[>] = H_nxt
+    y_o[>] = y_o
+
+  cntn_to_dcsn_mover:
+    Bellman: |
+      V = max_c{u(c, H_nxt) + beta * V[>]}
+    InvEuler: |
+      c = u_c_inv(beta * dV[>], H_nxt)
+    MarginalBellman: |
+      dV = u_c(c, H_nxt)
+
+  dcsn_to_arvl_mover:
+    Bellman: |
+      V[<] = V

@@ -1,0 +1,11 @@
+settings:
+  # Asset grids (numerical approximation)
+  n_w: 500
+  w_min: 1.0e-10
+  w_max: 50.0
+  n_w_rent: 500
+  w_rent_min: 1.0e-10
+  w_rent_max: 50.0
+  # FUES
+  m_bar: 1.0
+  m_bar_rent: 1.0

@@ -1,0 +1,8 @@
+name: HousingTenurePeriod
+
+stages:
+  - tenure_choice: !stage
+  - owner_housing: !stage
+  - owner_cons: !stage
+  - renter_housing: !stage
+  - renter_cons: !stage

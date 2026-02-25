@@ -1,0 +1,8 @@
+name: HousingTenureMethodization
+
+stage_methods:
+  - !include stages/tenure_choice_methods.yml
+  - !include stages/owner_housing_methods.yml
+  - !include stages/owner_cons_methods.yml
+  - !include stages/renter_housing_methods.yml
+  - !include stages/renter_cons_methods.yml
