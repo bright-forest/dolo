@@ -452,11 +452,10 @@ class SymbolicModel:
 
                 # Dolo+ stage-mode: one-level mapping of sub-equations (e.g. mover blocks)
                 elif isinstance(v, yaml.nodes.MappingNode):
-                    if not is_adc_stage:
-                        raise Exception(
-                            f"Unexpected nested mapping under `equations:{g}`. "
-                            "Nested sub-equations are only allowed in `dolo_plus.dialect: adc-stage`."
-                        )
+                    # Accept nested sub-equations for any stage that declares
+                    # mover blocks or branching transitions. The old
+                    # dolo_plus.dialect guard is removed — nested mappings
+                    # under equations are the standard dolo-plus pattern.
                     if g in ("arbitrage",):
                         raise Exception("Nested sub-equations are not supported for `arbitrage` blocks.")
 
@@ -480,18 +479,42 @@ class SymbolicModel:
                         # Standard adc-stage sub-equations (mover blocks)
                         subeqs = {}
                         for sub_label, sub_v in mapping_items(v):
-                            if not isinstance(sub_v, yaml.nodes.ScalarNode):
+                            if isinstance(sub_v, yaml.nodes.ScalarNode):
+                                # Simple sub-equation: Bellman: | ...
+                                assert sub_v.style == "|"
+                                try:
+                                    eqs = parse_string(sub_v, start="assignment_block")
+                                except Exception:
+                                    # Fallback for non-assignment expressions (e.g. solve_{}{})
+                                    eqs = parse_string(sub_v, start="equation_block")
+                                from dolang.perch_resolver import resolve_native_perches
+                                eqs = resolve_native_perches(eqs, self.symbols)
+                                eqs = sanitize(eqs, variables=vars)
+                                subeqs[sub_label] = [str_expression(e) for e in eqs.children]
+
+                            elif isinstance(sub_v, yaml.nodes.MappingNode) and self.kind == "branching":
+                                # Branch-keyed sub-equation (spec 0.1l/0.1q):
+                                # MarginalBellman:
+                                #   keep: | ...
+                                #   adjust: | ...
+                                branch_subeqs = {}
+                                for branch_label, branch_v in mapping_items(sub_v):
+                                    if not isinstance(branch_v, yaml.nodes.ScalarNode):
+                                        raise Exception(
+                                            f"Invalid branch payload at `{g}.{sub_label}.{branch_label}`: {type(branch_v)}"
+                                        )
+                                    assert branch_v.style == "|"
+                                    eqs = parse_string(branch_v, start="assignment_block")
+                                    from dolang.perch_resolver import resolve_native_perches
+                                    eqs = resolve_native_perches(eqs, self.symbols)
+                                    eqs = sanitize(eqs, variables=vars)
+                                    branch_subeqs[branch_label] = [str_expression(e) for e in eqs.children]
+                                subeqs[sub_label] = branch_subeqs
+
+                            else:
                                 raise Exception(
                                     f"Invalid sub-equation payload type at `{g}.{sub_label}`: {type(sub_v)}"
                                 )
-                            assert sub_v.style == "|"
-
-                            eqs = parse_string(sub_v, start="assignment_block")
-                            # spec_0.1g: resolve bare symbols to indexed variables for adc-stage
-                            from dolang.perch_resolver import resolve_native_perches
-                            eqs = resolve_native_perches(eqs, self.symbols)
-                            eqs = sanitize(eqs, variables=vars)
-                            subeqs[sub_label] = [str_expression(e) for e in eqs.children]
 
                         d[g] = subeqs
 
