@@ -34,6 +34,11 @@ symbols:
     d_{a_nxt}V[>]: '@in R+'     # partial_{a_nxt} v[>]
     d_{h_nxt}V[>]: '@in R+'     # partial_{h_nxt} v[>]
 
+  functions:
+    u: 'c, h -> alpha * c^(1 - gamma_c) / (1 - gamma_c) + (1 - alpha) * (kappa * h)^(1 - gamma_h) / (1 - gamma_h)'
+    d_{c}u: 'c -> alpha * c^(-gamma_c)'
+    d_{h}u: 'h -> (1 - alpha) * kappa^(1 - gamma_h) * h^(-gamma_h)'
+
   parameters:
     R: '@in R+'
     beta: '@in (0,1)'
@@ -54,14 +59,14 @@ equations:
 
   cntn_to_dcsn_mover:
     Bellman: |
-      V = max_{c}(alpha * c^(1 - gamma_c) / (1 - gamma_c) + (1 - alpha) * (kappa * (1 - delta) * h_keep)^(1 - gamma_h) / (1 - gamma_h) + beta * V[>])
+      V = max_{c}(u(c, (1 - delta) * h_keep) + beta * V[>])
     InvEuler: |
       c[>] = (alpha / (beta * d_{a_nxt}V[>]))^(1 / gamma_c)
     cntn_to_dcsn_transition: |
       w_keep[>] = a_nxt + c[>]
     MarginalBellman: |
-      d_{w}V = alpha * c^(-gamma_c)
-      d_{h}V = (1 - alpha) * kappa^(1 - gamma_h) * ((1 - delta) * h_keep)^(-gamma_h) * (1 - delta) + beta * d_{h_nxt}V[>] * (1 - delta)
+      d_{w}V = d_{c}u(c)
+      d_{h}V = d_{h}u((1 - delta) * h_keep) * (1 - delta) + beta * d_{h_nxt}V[>] * (1 - delta)
 
   dcsn_to_arvl_mover:
     Bellman: |
