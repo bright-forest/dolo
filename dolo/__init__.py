@@ -17,4 +17,10 @@ from dolo.misc.display import pcat
 from dolo.misc.groot import groot
 from dolo.misc.dprint import dprint
 
-from dolo.algos.commands import *
+try:
+    from dolo.algos.commands import *
+except Exception:
+    # algos.commands imports invert.py which uses @guvectorize —
+    # crashes on numba >=0.60 with LLVM symbol errors.
+    # Safe to skip: FUES/kikku only uses dolo.compiler, not dolo.algos.
+    pass
