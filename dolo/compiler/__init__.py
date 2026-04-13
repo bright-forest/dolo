@@ -22,6 +22,8 @@ from .methodization import (
     emit_methodization_template,
 )
 
+from . import stage_factory, spec_factory, period_factory, nest_factory
+
 __all__ = [
     # Validation
     "validate_model_dict",
@@ -36,4 +38,9 @@ __all__ = [
     "extract_stage_targets",
     "extract_operator_instances",
     "emit_methodization_template",
+    # Factory modules (spec 0.1r)
+    "stage_factory",
+    "spec_factory",
+    "period_factory",
+    "nest_factory",
 ]
