@@ -1,5 +1,9 @@
 """Nest assembly and backward solve-order derivation.
 
+Supports two calling conventions:
+- 0.1s (SpecGraph): make(nest_config, period_template, spec, sym_stages, upto=...)
+- 0.1r (flat dicts): make(nest_config, period_template, calibration, settings, stage_sources, upto=...)
+
 backward_paths migrated from kikku/dynx/graphs.py (spec 0.1r).
 """
 
@@ -15,7 +19,9 @@ def backward_paths(graph, inter_connector):
         post = set(data.get("poststate", []))
         if post & entry_fields:
             initial.add(node)
-    reversed_G = graph.reverse(copy=True)
+    # Avoid deep-copying node payloads (which may include immutable
+    # MappingProxyType values in spec 0.1s); topology-only access is enough.
+    reversed_G = graph.reverse(copy=False)
     resolved = set()
     waves = []
     all_nodes = set(graph.nodes)
@@ -40,35 +46,57 @@ def _all_successors_resolved(reversed_G, node, resolved):
     return all(s in resolved for s in reversed_G.successors(node))
 
 
-def make(nest_config, period_template, calibration, settings,
-         stage_sources, upto="specified"):
-    """Build nest topology from one repeated period template (spec 0.1r).
+def make(nest_config, period_template, third=None, fourth=None,
+         fifth=None, upto="specified"):
+    """Build nest topology.
 
-    In 0.1r, all periods use the same template and the same
-    calibration/settings/methods. Per-period variation (epochs,
-    spec_factory recipes) is deferred to spec 0.1s.
+    Two calling conventions:
 
-    Parameters
-    ----------
-    nest_config : dict
-        From ``nest_factory.load()``. Must contain ``inter_conn``.
-    period_template : dict
-        From ``period_factory.load()``. Stage list + wiring.
-    calibration : dict
-        Economic parameters.
-    settings : dict
-        Numerical settings.
-    stage_sources : dict
-        Pre-loaded stage data per stage name.
-    upto : str, optional
-        Passed through to ``period_factory.make``.
+    **0.1s (SpecGraph)**::
+
+        make(nest_config, period_template, spec, sym_stages, upto="specified")
+
+    **0.1r (flat dicts)**::
+
+        make(nest_config, period_template, calibration, settings, stage_sources, upto="specified")
+
+    Detection: if ``third`` has a ``stage_names`` attribute, use the
+    0.1s path. Otherwise, use the 0.1r path.
 
     Returns
     -------
     dict
-        ``period_inst``, ``graph``, ``waves``, ``inter_conn`` — one canonical
-        period instance (reused across horizon indices in 0.1r).
+        period_inst, graph, inter_conn, waves.
     """
+    if third is not None and hasattr(third, 'stage_names'):
+        return _make_from_spec(nest_config, period_template, third, fourth, upto=upto)
+    else:
+        return _make_from_flat(nest_config, period_template, third, fourth, fifth, upto=upto)
+
+
+def _make_from_spec(nest_config, period_template, spec, sym_stages, upto="specified"):
+    """0.1s path: build nest from SpecGraph."""
+    from dolo.compiler.period_factory import make as make_period
+    from dolo.compiler.period_factory.graphs import period_to_graph
+
+    period_inst = make_period(spec, 0, period_template, sym_stages, upto=upto)
+
+    graph = period_to_graph(period_inst)
+    inter_conn = nest_config.get("inter_conn", {})
+    waves = backward_paths(graph, inter_conn)
+
+    return {
+        "periods": [period_inst],
+        "period_inst": period_inst,  # backward compat alias
+        "graph": graph,
+        "inter_conn": inter_conn,
+        "waves": waves,
+    }
+
+
+def _make_from_flat(nest_config, period_template, calibration, settings,
+                    stage_sources, upto="specified"):
+    """0.1r path: build nest from flat dicts."""
     from dolo.compiler.period_factory import make as make_period
     from dolo.compiler.period_factory.graphs import period_to_graph
 
@@ -82,7 +110,8 @@ def make(nest_config, period_template, calibration, settings,
     waves = backward_paths(graph, inter_conn)
 
     return {
-        "period_inst": period_inst,
+        "periods": [period_inst],
+        "period_inst": period_inst,  # backward compat alias
         "graph": graph,
         "inter_conn": inter_conn,
         "waves": waves,

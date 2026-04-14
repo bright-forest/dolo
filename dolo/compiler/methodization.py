@@ -160,8 +160,9 @@ def load_methodization(source: Union[str, Path, dict]) -> dict:
     Returns:
         Dict with 'stage' (optional) and 'methods' keys
     """
-    if isinstance(source, dict):
-        return _fix_on_keys(source)
+    import types
+    if isinstance(source, (dict, types.MappingProxyType)):
+        return _fix_on_keys(dict(source) if isinstance(source, types.MappingProxyType) else source)
 
     path = Path(source)
     if not path.exists():

@@ -81,8 +81,9 @@ def load_settings(source: Union[str, Path, dict]) -> dict:
 
 def _load_source(source: Union[str, Path, dict]) -> dict:
     """Load data from file path or return dict as-is."""
-    if isinstance(source, dict):
-        return source
+    import types
+    if isinstance(source, (dict, types.MappingProxyType)):
+        return dict(source) if isinstance(source, types.MappingProxyType) else source
 
     path = Path(source)
     if not path.exists():
