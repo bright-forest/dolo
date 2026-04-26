@@ -225,6 +225,48 @@ class TestSlotSemanticsV3:
         assert dict(spec["st"][0]["calibration"])["beta"] == 0.91
         assert dict(spec["st"][0]["settings"])["n_a"] == 500
 
+    def test_tier_wrapped_methods_list_merges_correctly(self, tmp_path):
+        """Tier-wrapped slot with `methods` a bare list: list-wrap in _build_chain.
+
+        _merge_chain is dict-only; the methods dimension must receive
+        {"methods": [...]} so the list is not dropped (spec §4.1 amendment).
+        """
+        reg = _minimal_registry(tmp_path)
+        mdir = tmp_path / "stages" / "mm"
+        mdir.mkdir(parents=True)
+        (mdir / "base.yml").write_text(yaml.dump({
+            "methods": [
+                {"on": "old_mover", "schemes": [{"scheme": "s1", "method": "A"}]},
+            ]
+        }))
+        path = _write_recipe(reg, {"stages": {
+            "st": {
+                "calibration": {"all": ["calibration/main", "$m_switch"]},
+                "settings": {"all": ["settings/default", "$m_switch"]},
+                "methods": {"all": ["stages/mm/base", "$m_switch"]},
+            }
+        }})
+        recipe = load(path)
+        spec = make(
+            recipe,
+            registry_dir=str(reg),
+            m_switch={
+                "calibration": {"aux": 7},
+                "methods": [
+                    {
+                        "on": "new_mover",
+                        "schemes": [{"scheme": "sn", "method": "Z"}],
+                    }
+                ],
+            },
+        )
+        cal = dict(spec["st"][0]["calibration"])
+        assert cal.get("aux") == 7
+        methods = spec["st"][0]["methods"]["methods"]
+        ons = [e["on"] for e in methods]
+        assert "old_mover" in ons
+        assert "new_mover" in ons
+
     def test_typo_key_silent_in_calibration(self, tmp_path):
         reg = _minimal_registry(tmp_path)
         path = _write_recipe(reg, {"stages": {
