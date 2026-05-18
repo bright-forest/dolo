@@ -36,7 +36,7 @@ equations:
   dcsn_to_cntn_transition: |
     b_ret[>] = w_ret - c
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_c{log(c) + beta * V[>]}
     InvEuler: |
@@ -44,6 +44,6 @@ equations:
     MarginalBellman: |
       dV = 1/c
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V

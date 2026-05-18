@@ -1,30 +1,30 @@
 # Methodization (spec_0.1d) for `disc_stage.yaml`
 #
 # Trivial stage: no optimization, no shocks, no interpolation grid.
-# The backward mover is a scalar multiplication V = β * V[>].
+# The backward builder is a scalar multiplication V = β * V[>].
 
 stage: disc_stage
 
 methods:
   # ---------------------------------------------------------------------------
-  # Backward mover (scalar multiplication, no maximization)
+  # Backward builder (scalar multiplication, no maximization)
   # ---------------------------------------------------------------------------
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       - scheme: bellman_backward
         method: !scalar-multiply
-        description: "Discount mover: V_dcsn = β * V_cntn"
+        description: "Discount builder: V_dcsn = β * V_cntn"
 
-  - on: cntn_to_dcsn_mover.Bellman
+  - on: cntn_to_dcsn_builder.Bellman
     schemes: []
 
   # ---------------------------------------------------------------------------
-  # Arrival mover (identity)
+  # Arrival builder (identity)
   # ---------------------------------------------------------------------------
-  - on: dcsn_to_arvl_mover
+  - on: dcsn_to_arvl_builder
     schemes: []
 
-  - on: dcsn_to_arvl_mover.Bellman
+  - on: dcsn_to_arvl_builder.Bellman
     schemes: []
 
   # ---------------------------------------------------------------------------
@@ -37,14 +37,14 @@ methods:
     schemes: []
 
   # ---------------------------------------------------------------------------
-  # Forward movers (simulation — identity pass-through)
+  # Forward builders (simulation — identity pass-through)
   # ---------------------------------------------------------------------------
-  - on: arvl_to_dcsn_mover
+  - on: arvl_to_dcsn_builder
     schemes:
       - scheme: simulation
         method: !deterministic
 
-  - on: dcsn_to_cntn_mover
+  - on: dcsn_to_cntn_builder
     schemes:
       - scheme: simulation
         method: !deterministic

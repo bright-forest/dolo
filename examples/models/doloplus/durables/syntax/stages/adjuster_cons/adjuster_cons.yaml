@@ -53,7 +53,7 @@ equations:
     a_nxt = m - c - (1 + tau) * h_choice
     h_nxt = h_choice
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{c, h_choice}(u(c, h_choice) + beta * V[>])
 
@@ -66,7 +66,7 @@ equations:
     MarginalBellman: |
       d_{w}V = d_{c}u(c)
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V
     MarginalBellman: |

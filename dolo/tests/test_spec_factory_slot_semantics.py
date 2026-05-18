@@ -66,13 +66,13 @@ class TestSlotSemanticsV3:
         assert dict(spec["stage_y"][0]["calibration"])["beta"] == 0.96
         assert dict(spec["stage_y"][0]["calibration"])["orphan"] == 99
 
-    def test_methods_addition_new_mover(self, tmp_path):
+    def test_methods_addition_new_builder(self, tmp_path):
         reg = _minimal_registry(tmp_path)
         mdir = tmp_path / "stages" / "mm"
         mdir.mkdir(parents=True)
         (mdir / "base.yml").write_text(yaml.dump({
             "methods": [
-                {"on": "old_mover", "schemes": [{"scheme": "s1", "method": "A"}]},
+                {"on": "old_builder", "schemes": [{"scheme": "s1", "method": "A"}]},
             ]
         }))
         path = _write_recipe(reg, {"stages": {
@@ -89,7 +89,7 @@ class TestSlotSemanticsV3:
             ms={
                 "methods": [
                     {
-                        "on": "new_mover",
+                        "on": "new_builder",
                         "schemes": [{"scheme": "sn", "method": "Z"}],
                     }
                 ]
@@ -97,8 +97,8 @@ class TestSlotSemanticsV3:
         )
         methods = spec["st"][0]["methods"]["methods"]
         ons = [e["on"] for e in methods]
-        assert "old_mover" in ons
-        assert "new_mover" in ons
+        assert "old_builder" in ons
+        assert "new_builder" in ons
 
     def test_methods_partial_scheme_merge_preserves_fields(self, tmp_path):
         reg = _minimal_registry(tmp_path)
@@ -107,7 +107,7 @@ class TestSlotSemanticsV3:
         (mdir / "base.yml").write_text(yaml.dump({
             "methods": [
                 {
-                    "on": "mover",
+                    "on": "builder",
                     "schemes": [
                         {
                             "scheme": "upper_envelope",
@@ -133,7 +133,7 @@ class TestSlotSemanticsV3:
             ms={
                 "methods": [
                     {
-                        "on": "mover",
+                        "on": "builder",
                         "schemes": [{"scheme": "upper_envelope", "method": "NEGM"}],
                     }
                 ]
@@ -151,7 +151,7 @@ class TestSlotSemanticsV3:
         (mdir / "base.yml").write_text(yaml.dump({
             "methods": [
                 {
-                    "on": "mover",
+                    "on": "builder",
                     "schemes": [{"scheme": "bellman_backward", "method": "EGM"}],
                 },
             ]
@@ -170,7 +170,7 @@ class TestSlotSemanticsV3:
             ms={
                 "methods": [
                     {
-                        "on": "mover",
+                        "on": "builder",
                         "schemes": [{"scheme": "upper_envelope", "method": "FUES"}],
                     }
                 ]
@@ -236,7 +236,7 @@ class TestSlotSemanticsV3:
         mdir.mkdir(parents=True)
         (mdir / "base.yml").write_text(yaml.dump({
             "methods": [
-                {"on": "old_mover", "schemes": [{"scheme": "s1", "method": "A"}]},
+                {"on": "old_builder", "schemes": [{"scheme": "s1", "method": "A"}]},
             ]
         }))
         path = _write_recipe(reg, {"stages": {
@@ -254,7 +254,7 @@ class TestSlotSemanticsV3:
                 "calibration": {"aux": 7},
                 "methods": [
                     {
-                        "on": "new_mover",
+                        "on": "new_builder",
                         "schemes": [{"scheme": "sn", "method": "Z"}],
                     }
                 ],
@@ -264,8 +264,8 @@ class TestSlotSemanticsV3:
         assert cal.get("aux") == 7
         methods = spec["st"][0]["methods"]["methods"]
         ons = [e["on"] for e in methods]
-        assert "old_mover" in ons
-        assert "new_mover" in ons
+        assert "old_builder" in ons
+        assert "new_builder" in ons
 
     def test_typo_key_silent_in_calibration(self, tmp_path):
         reg = _minimal_registry(tmp_path)

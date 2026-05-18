@@ -8,9 +8,9 @@ stage: cons_stage
 
 methods:
   # ---------------------------------------------------------------------------
-  # Backward mover (EGM)
+  # Backward builder (EGM)
   # ---------------------------------------------------------------------------
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       - scheme: bellman_backward
         method: !egm
@@ -21,29 +21,29 @@ methods:
           orders: [n_m]
           bounds: [[m_min, m_max]]
 
-  - on: cntn_to_dcsn_mover.InvEuler
+  - on: cntn_to_dcsn_builder.InvEuler
     schemes:
       - scheme: egm_core
         method: !inverse-euler
 
-  - on: cntn_to_dcsn_mover.MarginalBellman
+  - on: cntn_to_dcsn_builder.MarginalBellman
     schemes:
       - scheme: envelope
         method: !marginal-value
 
-  - on: cntn_to_dcsn_mover.cntn_to_dcsn_transition
+  - on: cntn_to_dcsn_builder.cntn_to_dcsn_transition
     schemes: []
 
   # ---------------------------------------------------------------------------
-  # Arrival mover (identity)
+  # Arrival builder (identity)
   # ---------------------------------------------------------------------------
-  - on: dcsn_to_arvl_mover
+  - on: dcsn_to_arvl_builder
     schemes: []
 
-  - on: dcsn_to_arvl_mover.Bellman
+  - on: dcsn_to_arvl_builder.Bellman
     schemes: []
 
-  - on: dcsn_to_arvl_mover.ShadowBellman
+  - on: dcsn_to_arvl_builder.ShadowBellman
     schemes: []
 
   # ---------------------------------------------------------------------------
@@ -56,13 +56,13 @@ methods:
     schemes: []
 
   # ---------------------------------------------------------------------------
-  # Forward movers (simulation)
+  # Forward builders (simulation)
   # ---------------------------------------------------------------------------
-  - on: arvl_to_dcsn_mover
+  - on: arvl_to_dcsn_builder
     schemes:
       - scheme: simulation
         method: !deterministic
 
-  - on: dcsn_to_cntn_mover
+  - on: dcsn_to_cntn_builder
     schemes: []
 

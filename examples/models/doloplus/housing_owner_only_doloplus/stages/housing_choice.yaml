@@ -78,15 +78,15 @@ equations:
     H_nxt[>] = H_choice
     y[>] = y
 
-  # Backward mover: discrete choice over housing
-  cntn_to_dcsn_mover:
+  # Backward builder: discrete choice over housing
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{H_choice}(V[>])
     ShadowBellman: |
       dV = dV[>]
 
   # Expectation over income shocks
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = E_{y|y_pre}(V)
     ShadowBellman: |

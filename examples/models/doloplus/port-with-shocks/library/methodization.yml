@@ -3,7 +3,7 @@
 # This file defines method attachments for all stages in the library.
 # Apply to each stage individually - targets are matched by equation label.
 #
-# Note: Stage-qualified targets (e.g., cons_stage.cntn_to_dcsn_mover) are
+# Note: Stage-qualified targets (e.g., cons_stage.cntn_to_dcsn_builder) are
 # documented but the current implementation matches by label only.
 
 library: port-with-shocks
@@ -33,15 +33,15 @@ methods:
           n_nodes: n_joint_nodes
 
   # ===========================================================================
-  # BACKWARD MOVERS
+  # BACKWARD BUILDERS
   # ===========================================================================
 
-  # --- cntn_to_dcsn_mover ---
+  # --- cntn_to_dcsn_builder ---
   # cons_stage: EGM with InvEuler
   # port_stage: VFI with max over ς
   # noport_stage: pure expectation (no optimization)
 
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       - scheme: bellman_backward
         method: !egm
@@ -53,33 +53,33 @@ methods:
           orders: [n_m]
           bounds: [[m_min, m_max]]
 
-  - on: cntn_to_dcsn_mover.Bellman
+  - on: cntn_to_dcsn_builder.Bellman
     schemes: []
 
-  - on: cntn_to_dcsn_mover.InvEuler
+  - on: cntn_to_dcsn_builder.InvEuler
     schemes:
       - scheme: egm_core
         method: !inverse-euler
 
   # cons_stage uses `MarginalBellman` (not ShadowBellman) for the marginal object
-  - on: cntn_to_dcsn_mover.MarginalBellman
+  - on: cntn_to_dcsn_builder.MarginalBellman
     schemes:
       - scheme: envelope
         method: !marginal-value
 
-  - on: cntn_to_dcsn_mover.cntn_to_dcsn_transition
+  - on: cntn_to_dcsn_builder.cntn_to_dcsn_transition
     schemes: []
 
-  # --- dcsn_to_arvl_mover ---
+  # --- dcsn_to_arvl_builder ---
   # All stages: identity (no shock between arvl and dcsn)
 
-  - on: dcsn_to_arvl_mover
+  - on: dcsn_to_arvl_builder
     schemes: []
 
-  - on: dcsn_to_arvl_mover.Bellman
+  - on: dcsn_to_arvl_builder.Bellman
     schemes: []
 
-  - on: dcsn_to_arvl_mover.ShadowBellman
+  - on: dcsn_to_arvl_builder.ShadowBellman
     schemes: []
 
   # ===========================================================================
@@ -95,15 +95,15 @@ methods:
   # (No stage in this library exports a top-level cntn_to_dcsn_transition.)
 
   # ===========================================================================
-  # FORWARD MOVERS (Simulation)
+  # FORWARD BUILDERS (Simulation)
   # ===========================================================================
 
-  - on: arvl_to_dcsn_mover
+  - on: arvl_to_dcsn_builder
     schemes:
       - scheme: simulation
         method: !deterministic
 
-  - on: dcsn_to_cntn_mover
+  - on: dcsn_to_cntn_builder
     schemes:
       - scheme: simulation
         method: !monte-carlo

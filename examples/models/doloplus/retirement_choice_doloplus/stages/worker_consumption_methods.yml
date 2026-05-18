@@ -1,7 +1,7 @@
 stage: WorkerConsumption
 
 methods:
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       - scheme: bellman_backward
         method: !egm

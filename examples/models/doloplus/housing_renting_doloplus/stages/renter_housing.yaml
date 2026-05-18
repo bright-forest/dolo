@@ -41,10 +41,10 @@ equations:
     S[>] = S_choice
     y_r[>] = y_r
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{S_choice}(V[>])
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V

@@ -1,7 +1,7 @@
 # Methodization config (spec_0.1d)
 #
 # Attaches numerical-method metadata to stage targets:
-# - Equation/mover labels
+# - Equation/builder labels
 # - Sub-equation labels (dot notation)
 # - Operator instance IDs (E_y, etc.)
 #
@@ -15,7 +15,7 @@ methods:
   # Operator instances (extracted from equation bodies)
   # =========================================================================
 
-  # Expectation operator: E_{y}(...) in dcsn_to_arvl_mover
+  # Expectation operator: E_{y}(...) in dcsn_to_arvl_builder
   - on: E_y
     schemes:
       - scheme: expectation
@@ -24,11 +24,11 @@ methods:
           n_nodes: n_y_nodes
 
   # =========================================================================
-  # Backward movers (value/policy iteration)
+  # Backward builders (value/policy iteration)
   # =========================================================================
 
-  # cntn_to_dcsn_mover: EGM-style backward update
-  - on: cntn_to_dcsn_mover
+  # cntn_to_dcsn_builder: EGM-style backward update
+  - on: cntn_to_dcsn_builder
     schemes:
       - scheme: bellman_backward
         method: !egm
@@ -40,24 +40,24 @@ methods:
           bounds: [[w_grid_min, w_grid_max]]
           domain: [w_domain_min, w_domain_max]
 
-  # cntn_to_dcsn_mover sub-equations
-  - on: cntn_to_dcsn_mover.Bellman
+  # cntn_to_dcsn_builder sub-equations
+  - on: cntn_to_dcsn_builder.Bellman
     schemes: []
 
-  - on: cntn_to_dcsn_mover.InvEuler
+  - on: cntn_to_dcsn_builder.InvEuler
     schemes: []
 
-  - on: cntn_to_dcsn_mover.ShadowBellman
+  - on: cntn_to_dcsn_builder.ShadowBellman
     schemes: []
 
-  # dcsn_to_arvl_mover: expectation (backward)
-  - on: dcsn_to_arvl_mover
+  # dcsn_to_arvl_builder: expectation (backward)
+  - on: dcsn_to_arvl_builder
     schemes: []
 
-  - on: dcsn_to_arvl_mover.Bellman
+  - on: dcsn_to_arvl_builder.Bellman
     schemes: []
 
-  - on: dcsn_to_arvl_mover.ShadowBellman
+  - on: dcsn_to_arvl_builder.ShadowBellman
     schemes: []
 
   # =========================================================================
@@ -74,11 +74,11 @@ methods:
     schemes: []
 
   # =========================================================================
-  # Forward movers (simulation / distribution evolution)
+  # Forward builders (simulation / distribution evolution)
   # =========================================================================
 
   # Implied from arvl_to_dcsn_transition
-  - on: arvl_to_dcsn_mover
+  - on: arvl_to_dcsn_builder
     schemes:
       - scheme: simulation
         method: !monte-carlo
@@ -87,5 +87,5 @@ methods:
           seed: sim_seed
 
   # Implied from dcsn_to_cntn_transition
-  - on: dcsn_to_cntn_mover
+  - on: dcsn_to_cntn_builder
     schemes: []

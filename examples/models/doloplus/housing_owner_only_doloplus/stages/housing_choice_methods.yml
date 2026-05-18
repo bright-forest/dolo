@@ -6,7 +6,7 @@
 #   (see `_interp_scalar_cpu` / `_interp_scalar_gpu` in FUES).
 #
 # This file records that as an `interpolation` scheme attached to the backward
-# mover `cntn_to_dcsn_mover`.
+# builder `cntn_to_dcsn_builder`.
 #
 # You asked specifically to have an interpolator for assets `a` too; we include
 # both w- and a-grids as settings hooks (downstream can choose what it uses).
@@ -16,7 +16,7 @@
 stage: OwnerHousingChoice
 
 methods:
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       # Discrete maximization over H_choice (enumeration over the discrete H grid)
       - scheme: maximization

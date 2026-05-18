@@ -49,7 +49,7 @@ equations:
     H_r[>] = 0
     y_r[>] = y_r
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_c{u(c, S) + beta * V[>]}
     InvEuler: |
@@ -57,6 +57,6 @@ equations:
     MarginalBellman: |
       dV = u_c(c, S)
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V

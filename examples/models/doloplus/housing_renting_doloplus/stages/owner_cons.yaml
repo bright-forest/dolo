@@ -48,7 +48,7 @@ equations:
     H_nxt[>] = H_nxt
     y_o[>] = y_o
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_c{u(c, H_nxt) + beta * V[>]}
     InvEuler: |
@@ -56,6 +56,6 @@ equations:
     MarginalBellman: |
       dV = u_c(c, H_nxt)
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V

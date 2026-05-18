@@ -58,7 +58,7 @@ equations:
     a = m_d - c
 
   # BACKWARD ITERATION BELOW
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       u = (c^(1-ρ))/(1-ρ) # this is just an arbitary equation -- ie a string replacement operation . the question whether we want to be able to define arbitrary *function* not just of the state, but of some variable. 
       V = max_{c}(u + β*V[>]) # V = V_fn_dcsn(x_dcsn) = V_fn_dcsn(m_d)
@@ -73,7 +73,7 @@ equations:
 
 
   # Deterministic arvl→dcsn:
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V
     ShadowBellman: |
@@ -87,11 +87,11 @@ dolo_plus:
   equation_symbols:
     arvl_to_dcsn_transition: g_ad
     dcsn_to_cntn_transition: g_de
-    cntn_to_dcsn_mover: T_ed
-    dcsn_to_arvl_mover: T_da
+    cntn_to_dcsn_builder: T_ed
+    dcsn_to_arvl_builder: T_da
 
-  # Sub-equation symbols within movers
-  mover_sub_equations:
+  # Sub-equation symbols within builders
+  builder_sub_equations:
     T_ed:
       Bellman: T_ed_Bellman
       InvEuler: T_ed_InvEuler

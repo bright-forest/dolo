@@ -42,10 +42,10 @@ equations:
     retire: |
       a_ret[>] = a
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{d}(V_cntn[>][work] - delta, V_cntn[>][retire])
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V

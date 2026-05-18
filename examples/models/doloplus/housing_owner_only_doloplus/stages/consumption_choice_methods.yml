@@ -16,7 +16,7 @@
 stage: OwnerConsumptionChoice
 
 methods:
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       # Backward solution algorithm (FUES: model.methods["solution"])
       - scheme: bellman_backward

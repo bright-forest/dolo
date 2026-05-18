@@ -33,7 +33,7 @@ def registry(tmp_path):
     stage_b_dir = tmp_path / "stages" / "stage_b"
     stage_b_dir.mkdir(parents=True)
     (stage_b_dir / "stage_b_methods.yml").write_text(yaml.dump({
-        "methods": [{"on": "mover", "schemes": [{"scheme": "upper_envelope", "method": "FUES"}]}]
+        "methods": [{"on": "builder", "schemes": [{"scheme": "upper_envelope", "method": "FUES"}]}]
     }))
 
     return tmp_path
@@ -376,7 +376,7 @@ class TestSpecFactoryFixes:
             method_switch={
                 "methods": [
                     {
-                        "on": "mover",
+                        "on": "builder",
                         "schemes": [{"scheme": "upper_envelope", "method": "NEGM"}],
                     }
                 ]
@@ -489,7 +489,7 @@ class TestSpecFactoryFixes:
                     "schemes": [{"scheme": "expectation", "method": "gauss-hermite"}],
                 },
                 {
-                    "on": "cntn_to_dcsn_mover",
+                    "on": "cntn_to_dcsn_builder",
                     "schemes": [{"scheme": "upper_envelope", "method": "FUES"}],
                 },
             ]
@@ -497,7 +497,7 @@ class TestSpecFactoryFixes:
         (stage_dir / "methods_overlay.yml").write_text(yaml.dump({
             "methods": [
                 {
-                    "on": "cntn_to_dcsn_mover",
+                    "on": "cntn_to_dcsn_builder",
                     "schemes": [{"scheme": "upper_envelope", "method": "NEGM"}],
                 }
             ]
@@ -519,10 +519,10 @@ class TestSpecFactoryFixes:
         methods = spec["stage_merge"][0]["methods"]["methods"]
         targets = {entry["on"]: entry for entry in methods}
         assert "E_y" in targets
-        assert "cntn_to_dcsn_mover" in targets
-        mover_scheme = targets["cntn_to_dcsn_mover"]["schemes"][0]
-        assert mover_scheme["scheme"] == "upper_envelope"
-        assert mover_scheme["method"] == "NEGM"
+        assert "cntn_to_dcsn_builder" in targets
+        builder_scheme = targets["cntn_to_dcsn_builder"]["schemes"][0]
+        assert builder_scheme["scheme"] == "upper_envelope"
+        assert builder_scheme["method"] == "NEGM"
 
     def test_source_file_strips_metadata_keys(self, registry):
         (registry / "calibration" / "meta_parent.yaml").write_text(yaml.dump({

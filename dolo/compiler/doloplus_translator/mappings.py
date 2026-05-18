@@ -89,7 +89,7 @@ SYMBOL_RENAMES: Dict[str, str] = {
 # =============================================================================
 # EXPECTATION SYNTHESIS CONFIG
 # =============================================================================
-# Specifies how to build the Dolo `expectation` block from Dolo+ mover equations.
+# Specifies how to build the Dolo `expectation` block from Dolo+ builder equations.
 #
 # The expectation block computes: mr[t] = E[integrand * factors]
 #
@@ -103,14 +103,14 @@ EXPECTATION_CONFIG: Dict = {
     # Where to find the integrand (what's inside the expectation)
     # e.g., dV[_dcsn] = (c[_dcsn])^(-γ) → integrand = (c[_dcsn])^(-γ)
     "T_ed": {
-        "mover": "cntn_to_dcsn_mover",
+        "builder": "cntn_to_dcsn_builder",
         "sub_equation": "ShadowBellman",
     },
 
     # Where to find multiplicative factors (interest rate, etc.)
     # e.g., dV[_arvl] = r * E_{y}(dV[_dcsn]) → factors = [r]
     "T_da": {
-        "mover": "dcsn_to_arvl_mover",
+        "builder": "dcsn_to_arvl_builder",
         "sub_equation": "ShadowBellman",
     },
 

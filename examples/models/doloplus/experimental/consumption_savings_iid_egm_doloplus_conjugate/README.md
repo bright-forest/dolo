@@ -21,7 +21,7 @@ V = max_c{ u(c) + β*E_y[V'] }
     Expectation is INSIDE the max (in continuation value)
 ```
 
-This is **NOT** about moving which mover has the expectation.  
+This is **NOT** about moving which builder has the expectation.  
 It's about the **structure of the decision problem itself**.
 
 ## ADC Representation
@@ -29,13 +29,13 @@ It's about the **structure of the decision problem itself**.
 ### Original Stage
 
 ```yaml
-cntn_to_dcsn_mover:
+cntn_to_dcsn_builder:
   Bellman: |
     V[_dcsn] = max_{c}(u(c) + β*V[_cntn])
     #                        ^^^^^^^^
     # "Raw" continuation value
 
-dcsn_to_arvl_mover:
+dcsn_to_arvl_builder:
   Bellman: |
     V[_arvl] = E_{y}(V[_dcsn])
     #          ^^^^
@@ -45,13 +45,13 @@ dcsn_to_arvl_mover:
 ### Conjugate Stage
 
 ```yaml
-cntn_to_dcsn_mover:
+cntn_to_dcsn_builder:
   Bellman: |
     V[_dcsn] = max_{c}(u(c) + β*E_{y}(V[_cntn]))
     #                        ^^^^^^^^^^^^^^^
     # Expectation INSIDE the decision!
 
-dcsn_to_arvl_mover:
+dcsn_to_arvl_builder:
   Bellman: |
     V[_arvl] = V[_dcsn]
     # Identity (no expectation here)
@@ -133,10 +133,10 @@ transform = conjugate_transform(original)
 conjugate = transform.conjugate_stage
 
 # Compare the decision equations
-print("Original:", original['equations']['cntn_to_dcsn_mover']['Bellman'])
+print("Original:", original['equations']['cntn_to_dcsn_builder']['Bellman'])
 # V[_dcsn] = max_{c}(u(c) + β*V[_cntn])
 
-print("Conjugate:", conjugate['equations']['cntn_to_dcsn_mover']['Bellman'])
+print("Conjugate:", conjugate['equations']['cntn_to_dcsn_builder']['Bellman'])
 # V[_dcsn] = max_{c}(u(c) + β*E_{y}(V[_cntn]))
 #                          ^^^^^^^^^^^^^^^^
 #                    Expectation moved inside!

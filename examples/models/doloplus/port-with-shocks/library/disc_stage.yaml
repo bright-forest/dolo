@@ -41,13 +41,13 @@ equations:
   dcsn_to_cntn_transition: |
     a = a_d
 
-  # Backward mover: scale continuation value by β
-  cntn_to_dcsn_mover:
+  # Backward builder: scale continuation value by β
+  cntn_to_dcsn_builder:
     Bellman: |
       V = β*V[>]
 
   # Identity: arrival value = decision value
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V
 
@@ -58,8 +58,8 @@ dolo_plus:
   equation_symbols:
     arvl_to_dcsn_transition: g_ad
     dcsn_to_cntn_transition: g_de
-    cntn_to_dcsn_mover: T_ed
-    dcsn_to_arvl_mover: T_da
+    cntn_to_dcsn_builder: T_ed
+    dcsn_to_arvl_builder: T_da
 
   slot_map:
     prestate: a

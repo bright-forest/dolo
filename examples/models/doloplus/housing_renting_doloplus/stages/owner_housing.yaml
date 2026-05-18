@@ -44,10 +44,10 @@ equations:
     H_nxt[>] = H_choice
     y_o[>] = y_o
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{H_choice}(V[>])
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V

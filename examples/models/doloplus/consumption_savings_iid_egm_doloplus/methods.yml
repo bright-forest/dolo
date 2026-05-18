@@ -9,14 +9,14 @@
 #   - `domain.w: [0.01, 4.0]`
 #
 # - New (0.1d spirit):
-#   - attach schemes/methods to the **backward Bellman mover**
-#   - treat grid construction as part of the mover’s interpolation/approximation configuration
+#   - attach schemes/methods to the **backward Bellman builder**
+#   - treat grid construction as part of the builder’s interpolation/approximation configuration
 #   - numeric values are referenced via `symbols.settings` names and live in `settings.yaml`
 
 stage: consumption_savings_iid_egm_doloplus_split
 
 methods:
-  # Expectation operator instance used in `dcsn_to_arvl_mover`:
+  # Expectation operator instance used in `dcsn_to_arvl_builder`:
   #   `E_{y}(...)` → operator instance `E_y`
   - on: E_y
     schemes:
@@ -25,7 +25,7 @@ methods:
         settings:
           n_nodes: n_y_nodes
 
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       # Old: `dolo_plus.method: egm`
       - scheme: bellman_backward
@@ -34,7 +34,7 @@ methods:
       # Old: `options.grid: !Cartesian {orders, bounds}` (+ `domain.w`)
       #
       # Interpretation: in this simple example, we treat grid construction as part of the
-      # mover’s interpolation/approximation configuration (attached to the backward mover).
+      # builder’s interpolation/approximation configuration (attached to the backward builder).
       #
       # Note: Dolo’s interpolation *type* is typically a separate choice (often defaulting
       # to cubic). We omit it here to match the original YAML, which only specified the grid.
@@ -51,8 +51,8 @@ methods:
           domain: [w_domain_min, w_domain_max]
 
   # Forward simulation / push-forward (new vs old Dolo; explicit methodization hook).
-  # We target the (possibly derived) forward mover rather than any kernel equation.
-  - on: arvl_to_dcsn_mover
+  # We target the (possibly derived) forward builder rather than any kernel equation.
+  - on: arvl_to_dcsn_builder
     schemes:
       - scheme: simulation
         method: !monte-carlo

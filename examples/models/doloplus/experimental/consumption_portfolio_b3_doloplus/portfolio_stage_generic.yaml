@@ -94,7 +94,7 @@ equations:
   #
   # The state tuple and control tuple (if any) are attributes of the perch, so do not need to be explicitly specified
 
-  cntn_to_dcsn_mover:  
+  cntn_to_dcsn_builder:  
     # unified: xₑ = gᵥₑ(xᵥ, 𝜋, ζ) where ζ realizes post-decision
     # Bellman: 𝒱(xᵥ) = max_{𝜋 ∈ Π} E_ζ[ℰ(gᵥₑ(xᵥ, 𝜋, ζ))]
     # Here: gᵥₑ(liq_state, shr, (RiskyShk, TranShk)) = m

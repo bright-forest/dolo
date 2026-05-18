@@ -232,7 +232,7 @@ def make(recipe, registry_dir, **slot_bindings):
         as paths relative to this directory.
     **slot_bindings
         Named slot values. E.g., draw={"beta": 0.95},
-        method_switch={"methods": [{"on": "mover", "schemes": [...]}]}.
+        method_switch={"methods": [{"on": "builder", "schemes": [...]}]}.
         Unfilled slots contribute {} (empty dict).
 
     Returns

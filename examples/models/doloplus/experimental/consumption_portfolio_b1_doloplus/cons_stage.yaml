@@ -67,7 +67,7 @@ equations:
   cntn_to_dcsn_transition: |
     w = a[>] + c
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{c}((c^(1-γ))/(1-γ) + β*V[>])
     InvEuler: |
@@ -75,7 +75,7 @@ equations:
     ShadowBellman: |
       dV = (c)^(-γ)
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = E_{y}(E_{R}(V))
     ShadowBellman: |

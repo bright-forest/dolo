@@ -57,7 +57,7 @@ equations:
     a_nxt = w_keep - c
     h_nxt = (1 - delta) * h_keep
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{c}(u(c, (1 - delta) * h_keep) + beta * V[>])
     InvEuler: |
@@ -68,7 +68,7 @@ equations:
       d_{w}V = d_{c}u(c)
       d_{h}V = d_{h}u((1 - delta) * h_keep) * (1 - delta) + beta * d_{h_nxt}V[>] * (1 - delta)
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V
     MarginalBellman: |

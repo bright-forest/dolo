@@ -63,7 +63,7 @@ equations:
     adjust: |
       w_adj[>] = R * a + R_H * (1 - delta) * h + y(z)
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{d}(V[>][keep], V[>][adjust])
     MarginalBellman:
@@ -74,7 +74,7 @@ equations:
         d_{a}V = R * d_{w_adj}V[>]
         d_{h}V = R_H * (1 - delta) * d_{w_adj}V[>]
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = E_{z}(V)
     MarginalBellman: |

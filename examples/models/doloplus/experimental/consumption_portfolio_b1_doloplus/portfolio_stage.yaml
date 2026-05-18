@@ -33,11 +33,11 @@ equations:
     b[>] = k
     sigma[>] = s
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{s}(V[>])
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V
 

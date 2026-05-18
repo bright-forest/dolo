@@ -58,10 +58,10 @@ equations:
       w_r[>] = (1 + r) * a + z_vals[y] + H
       y_r[>] = y
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_d{V_cntn[>][own], V_cntn[>][rent]}
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = E_{y|y_pre}(V)

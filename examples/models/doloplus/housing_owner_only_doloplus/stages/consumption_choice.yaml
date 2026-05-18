@@ -74,8 +74,8 @@ equations:
   cntn_to_dcsn_transition: |
     w_dcsn[>] = a_nxt + c_fn[>]
 
-  # Backward mover: Bellman + EGM
-  cntn_to_dcsn_mover:
+  # Backward builder: Bellman + EGM
+  cntn_to_dcsn_builder:
     # Utility: Cobb-Douglas in consumption and housing services
     # u(c, H) = ((c^theta * (kappa*H + iota)^(1-theta))^(1-gamma))/(1-gamma)
     Bellman: |
@@ -88,7 +88,7 @@ equations:
       # from the above, the implicit EGM algo is to build..
 
   # Decision to Arrival: identity (no shock integration needed within stage)
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V
     ShadowBellman: |

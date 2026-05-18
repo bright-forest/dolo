@@ -58,10 +58,10 @@ equations:
   dcsn_to_cntn_transition: |
     m = exp(y) + k*(shr*Risky + (1-shr)*Rf)
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = max_{shr}(E_{y,Risky}(V[>]))
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V

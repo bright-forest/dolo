@@ -6,8 +6,8 @@ The stage verb (methodize) lives in stage_factory/methodize.py.
 This file re-exports it for backward compatibility.
 
 Targets can be:
-- Equation/mover labels (top-level keys under `equations:`)
-- Sub-equation labels via dot notation (`cntn_to_dcsn_mover.InvEuler`)
+- Equation/builder labels (top-level keys under `equations:`)
+- Sub-equation labels via dot notation (`cntn_to_dcsn_builder.InvEuler`)
 - Operator instance IDs extracted from equation bodies (`E_y`, `E_w`)
 """
 
@@ -38,15 +38,15 @@ def extract_stage_targets(stage) -> List[str]:
     Extract all targetable labels from a stage.
 
     Returns equation labels and sub-equation labels (dot notation).
-    Forward movers are implied from transitions.
+    Forward builders are implied from transitions.
 
     Args:
         stage: SymbolicModel with parsed YAML
 
     Returns:
         List of target strings, e.g.:
-        ['arvl_to_dcsn_transition', 'cntn_to_dcsn_mover',
-         'cntn_to_dcsn_mover.Bellman', 'cntn_to_dcsn_mover.InvEuler', ...]
+        ['arvl_to_dcsn_transition', 'cntn_to_dcsn_builder',
+         'cntn_to_dcsn_builder.Bellman', 'cntn_to_dcsn_builder.InvEuler', ...]
     """
     targets = []
 
@@ -63,9 +63,9 @@ def extract_stage_targets(stage) -> List[str]:
 
     for label in list(targets):
         if label.endswith('_transition'):
-            forward_mover = label.replace('_transition', '_mover')
-            if forward_mover not in targets:
-                targets.append(forward_mover)
+            forward_builder = label.replace('_transition', '_builder')
+            if forward_builder not in targets:
+                targets.append(forward_builder)
 
     return targets
 
@@ -248,7 +248,7 @@ def emit_methodization_template(stage, stage_name: str = "stage") -> str:
             lines.append("")
 
     if stage_targets:
-        lines.append("  # Stage labels (equations, movers, sub-equations)")
+        lines.append("  # Stage labels (equations, builders, sub-equations)")
         for target in stage_targets:
             lines.append(f"  - on: {target}")
             lines.append(f"    schemes: []")

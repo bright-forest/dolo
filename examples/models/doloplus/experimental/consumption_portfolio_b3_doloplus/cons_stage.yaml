@@ -61,7 +61,7 @@ equations:
   cntn_to_dcsn_transition: |
     w[>] = a + c # syntactic sugar for w_fn_cntn(a, c) = w_fn_dcsn(a, c)
 
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: | 
       V = max_{c}((c^(1-γ))/(1-γ) + β*V[>])    # V_fn_dcsn(w) = max_{c} (c^(1-γ))/(1-γ) + β*V_fn_cntn(w[>])
       c = argmax_{c}((c^(1-γ))/(1-γ) + β*V[>]) # semantic parser: knows this is V_fn_cntn(w[>]) because the parser know how to interpet the cntn_to_dcsn_transition equation
@@ -71,7 +71,7 @@ equations:
       dV = (c)^(-γ)
 
   # No expectation needed at arrival in B3: the stage is deterministic.
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V
     ShadowBellman: |

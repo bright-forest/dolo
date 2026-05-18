@@ -15,7 +15,7 @@ def methodize(stage, methodization_source: Union[str, Path, dict],
     The original stage is not mutated.
 
     The methodization is expanded to be exhaustive over all targets:
-    - Stage labels (equations, movers)
+    - Stage labels (equations, builders)
     - Sub-equation labels (dot notation)
     - Operator instances (E_y, etc.)
 

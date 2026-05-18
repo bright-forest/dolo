@@ -61,12 +61,12 @@ equations:
     m = k_d*R + θ
 
   # No choice ⇒ decision value is just an expectation over the post-decision shock.
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       V = E_{θ}(V[>])
 
   # No expectation at arrival (deterministic arvl→dcsn):
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V
 
@@ -78,8 +78,8 @@ dolo_plus:
   equation_symbols:
     arvl_to_dcsn_transition: g_ad
     dcsn_to_cntn_transition: g_de
-    cntn_to_dcsn_mover: T_ed
-    dcsn_to_arvl_mover: T_da
+    cntn_to_dcsn_builder: T_ed
+    dcsn_to_arvl_builder: T_da
 
   # Slot map: prestate → poststate linkage for inter-period wiring
   slot_map:

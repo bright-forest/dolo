@@ -17,9 +17,9 @@ methods:
           n_nodes: n_joint_nodes
 
   # ---------------------------------------------------------------------------
-  # Backward mover (VFI: max over ς, expectation over shocks)
+  # Backward builder (VFI: max over ς, expectation over shocks)
   # ---------------------------------------------------------------------------
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       # Solve method: value function iteration (direct maximization)
       - scheme: bellman_backward
@@ -41,16 +41,16 @@ methods:
       - scheme: maximization
         method: !scipy-bounded
 
-  - on: cntn_to_dcsn_mover.Bellman
+  - on: cntn_to_dcsn_builder.Bellman
     schemes: []
 
   # ---------------------------------------------------------------------------
-  # Arrival mover (identity — no shock between arvl and dcsn)
+  # Arrival builder (identity — no shock between arvl and dcsn)
   # ---------------------------------------------------------------------------
-  - on: dcsn_to_arvl_mover
+  - on: dcsn_to_arvl_builder
     schemes: []
 
-  - on: dcsn_to_arvl_mover.Bellman
+  - on: dcsn_to_arvl_builder.Bellman
     schemes: []
 
   # ---------------------------------------------------------------------------
@@ -63,14 +63,14 @@ methods:
     schemes: []
 
   # ---------------------------------------------------------------------------
-  # Forward movers (simulation)
+  # Forward builders (simulation)
   # ---------------------------------------------------------------------------
-  - on: arvl_to_dcsn_mover
+  - on: arvl_to_dcsn_builder
     schemes:
       - scheme: simulation
         method: !deterministic
 
-  - on: dcsn_to_cntn_mover
+  - on: dcsn_to_cntn_builder
     schemes:
       - scheme: simulation
         method: !monte-carlo

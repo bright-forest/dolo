@@ -1,7 +1,7 @@
 stage: WorkerDecision
 
 methods:
-  - on: cntn_to_dcsn_mover
+  - on: cntn_to_dcsn_builder
     schemes:
       - scheme: branching_aggregator
         method: !max

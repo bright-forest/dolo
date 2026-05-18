@@ -19,7 +19,7 @@ def override_methods(stage_sources, method_overrides):
         ``["methods"]["methods"]`` list of ``{on: target, schemes: [...]}``.
     method_overrides : dict
         ``{(stage_name, target, scheme_name): method_tag, ...}``
-        e.g. ``{('adjuster_cons', 'cntn_to_dcsn_mover', 'upper_envelope'): 'NEGM'}``
+        e.g. ``{('adjuster_cons', 'cntn_to_dcsn_builder', 'upper_envelope'): 'NEGM'}``
 
     Returns
     -------
@@ -59,7 +59,7 @@ def parse_method_override_str(raw):
     """Parse CLI string 'stage.target.scheme=TAG' into key + value.
 
     Also supports shorthand 'stage.scheme=TAG' (target defaults to
-    'cntn_to_dcsn_mover').
+    'cntn_to_dcsn_builder').
 
     Returns
     -------
@@ -74,7 +74,7 @@ def parse_method_override_str(raw):
         stage, target, scheme = parts
     elif len(parts) == 2:
         stage, scheme = parts
-        target = 'cntn_to_dcsn_mover'  # default target
+        target = 'cntn_to_dcsn_builder'  # default target
     else:
         raise ValueError(
             f"Method override path must be stage.target.scheme or "

@@ -4,14 +4,14 @@ stages:
 
   labour_mkt_decision:
     methods:
-      - on: cntn_to_dcsn_mover
+      - on: cntn_to_dcsn_builder
         schemes:
           - scheme: branching_aggregator
             method: !max
 
   work_cons:
     methods:
-      - on: cntn_to_dcsn_mover
+      - on: cntn_to_dcsn_builder
         schemes:
           - scheme: bellman_backward
             method: !egm
@@ -29,7 +29,7 @@ stages:
 
   retire_cons:
     methods:
-      - on: cntn_to_dcsn_mover
+      - on: cntn_to_dcsn_builder
         schemes:
           - scheme: bellman_backward
             method: !egm

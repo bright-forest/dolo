@@ -52,7 +52,7 @@ symbols:
     σ_riskylog: "@in R+"
 
 equations:
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: | # At the point of the decision perch, share is a control variable.
       # The value function is defined as the maximum expected value of the continuation stage,
       # V is syntactic sugar for V_fn_dcsn(k) (where see below for k)
@@ -66,6 +66,6 @@ equations:
   dcsn_to_cntn_transition: | # again CDC thinks eventually we will not want the [>]/unmarked tags
     m = exp(ylog) + k*(shr*exp(riskylog) + (1-shr)*Rfree)
 
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       V[<] = V # the parser knows that this is actually V_fn_arvl(a[<]) = V_fn_dcsn(k[<]) because the semantic parser knows to apply the arvl_to_dcsn_transition equation (except on measure 0 sets)
