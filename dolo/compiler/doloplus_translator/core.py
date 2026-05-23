@@ -375,20 +375,20 @@ def translate_equations(
     eq_symbols = context["eq_symbols"]
 
     transition_map: Dict[str, str] = tables.get("TRANSITION_TO_BLOCK") or {}
-    mover_map: Dict[str, Dict[str, str]] = tables.get("MOVER_TO_BLOCK") or {}
+    builder_map: Dict[str, Dict[str, str]] = tables.get("BUILDER_TO_BLOCK") or {}
     symbol_renames: Dict[str, str] = tables.get("SYMBOL_RENAMES") or {}
 
     perch_offsets: Dict[str, int] = tables.get("PERCH_TO_TIME_OFFSET") or {}
 
     pipelines = tables.get("PIPELINES") or {}
     transition_pipeline = pipelines.get("transitions")
-    mover_pipeline = pipelines.get("movers")
-    if transition_pipeline is None or mover_pipeline is None:
+    builder_pipeline = pipelines.get("builders")
+    if transition_pipeline is None or builder_pipeline is None:
         raise ValueError(
-            "Missing PIPELINES configuration. Expected keys: PIPELINES.transitions, PIPELINES.movers."
+            "Missing PIPELINES configuration. Expected keys: PIPELINES.transitions, PIPELINES.builders."
         )
 
-    mover_perch_overrides = tables.get("MOVER_PERCH_OFFSETS_OVERRIDE") or {}
+    builder_perch_overrides = tables.get("BUILDER_PERCH_OFFSETS_OVERRIDE") or {}
     transition_perch_overrides = tables.get("TRANSITION_PERCH_OFFSETS_OVERRIDE") or {}
     state_collapse_map: Dict[str, str] = tables.get("STATE_COLLAPSE") or {}
     lognormal_map: Dict[str, str] = (tables.get("LOGNORMAL_TRANSFORM") or {}).get("symbols") or {}
@@ -471,31 +471,31 @@ def translate_equations(
             equations[block_name] = join_equations(translated)
             continue
 
-        # Mover sub-equations (dict[subeq -> list[str]])
-        if canonical in mover_map:
+        # Builder sub-equations (dict[subeq -> list[str]])
+        if canonical in builder_map:
             if not isinstance(payload, dict):
                 raise ValueError(
-                    f"Expected mapping payload for mover '{label}', got {type(payload)}"
+                    f"Expected mapping payload for builder '{label}', got {type(payload)}"
                 )
-            submap = mover_map[canonical] or {}
+            submap = builder_map[canonical] or {}
             for subeq, target_block in submap.items():
                 eq_lines = payload.get(subeq)
                 if not eq_lines:
                     continue
                 if not isinstance(eq_lines, list):
                     raise ValueError(
-                        f"Expected list payload for mover sub-equation '{label}.{subeq}', got {type(eq_lines)}"
+                        f"Expected list payload for builder sub-equation '{label}.{subeq}', got {type(eq_lines)}"
                     )
 
                 # Allow per-(canonical, subeq) perch-offset overrides.
                 overrides = (
-                    mover_perch_overrides.get(canonical, {}).get(subeq, {}) or {}
+                    builder_perch_overrides.get(canonical, {}).get(subeq, {}) or {}
                 )
                 offsets_local = dict(perch_offsets)
                 offsets_local.update({k: int(v) for k, v in overrides.items()})
 
                 translated = [
-                    apply_pipeline(eq, mover_pipeline, perch_offsets_local=offsets_local)
+                    apply_pipeline(eq, builder_pipeline, perch_offsets_local=offsets_local)
                     for eq in eq_lines
                 ]
 
@@ -516,7 +516,7 @@ def translate_equations(
         out_block = arbitrage_config.get("output_block", "arbitrage")
         equations[out_block] = _synthesize_arbitrage(context, arbitrage_config)
 
-    # VFI synthesis: derive felicity + value from Bellman mover
+    # VFI synthesis: derive felicity + value from Bellman builder
     vfi_config = tables.get("VFI_SYNTHESIS")
     if vfi_config is not None:
         vfi_eqs = _synthesize_vfi_from_bellman(source_eqs, context, vfi_config)
@@ -556,7 +556,7 @@ def synthesize_expectation(
     config: Dict,
 ) -> str:
     """
-    Synthesize Dolo expectation block from mover equations.
+    Synthesize Dolo expectation block from builder equations.
 
     Uses config to determine:
         - Where to extract integrand from
@@ -572,12 +572,12 @@ def synthesize_expectation(
     """
     # Extract integrand from T_ed source
     t_ed_config = config["T_ed"]
-    t_ed = source_eqs.get(t_ed_config["mover"], {})
+    t_ed = source_eqs.get(t_ed_config["builder"], {})
     shadow_ed = t_ed.get(t_ed_config["sub_equation"], [])
 
     if not shadow_ed:
         raise ValueError(
-            f"Missing {t_ed_config['mover']}.{t_ed_config['sub_equation']} "
+            f"Missing {t_ed_config['builder']}.{t_ed_config['sub_equation']} "
             "for expectation synthesis"
         )
 
@@ -604,11 +604,11 @@ def synthesize_expectation(
     t_da_config = config.get("T_da")
     factors_str = "1"
     if t_da_config is not None:
-        t_da = source_eqs.get(t_da_config["mover"], {})
+        t_da = source_eqs.get(t_da_config["builder"], {})
         shadow_da = t_da.get(t_da_config["sub_equation"], [])
         if not shadow_da:
             raise ValueError(
-                f"Missing {t_da_config['mover']}.{t_da_config['sub_equation']} "
+                f"Missing {t_da_config['builder']}.{t_da_config['sub_equation']} "
                 "for expectation synthesis"
             )
         factor_eq = shadow_da[0]
@@ -687,7 +687,7 @@ def _synthesize_vfi_from_bellman(
 
     Config keys:
 
-    - ``mover``: source equation label (e.g. ``cntn_to_dcsn_mover``)
+    - ``builder``: source equation label (e.g. ``cntn_to_dcsn_builder``)
     - ``sub_equation``: sub-equation key (e.g. ``Bellman``)
     - ``felicity_block``: output block name for felicity (default ``felicity``)
     - ``value_block``: output block name for value (default ``value``)
@@ -696,14 +696,14 @@ def _synthesize_vfi_from_bellman(
     """
     import re as _re
 
-    mover_label = config["mover"]
+    builder_label = config["builder"]
     sub_eq = config["sub_equation"]
 
-    mover_data = source_eqs.get(mover_label)
-    if mover_data is None or not isinstance(mover_data, dict):
+    builder_data = source_eqs.get(builder_label)
+    if builder_data is None or not isinstance(builder_data, dict):
         return {}
 
-    bellman_lines = mover_data.get(sub_eq, [])
+    bellman_lines = builder_data.get(sub_eq, [])
     if not bellman_lines:
         return {}
 
@@ -871,7 +871,7 @@ def _synthesize_composed_transition(
     if payload is None:
         return None
     if isinstance(payload, dict):
-        return None  # movers are dicts, not transitions
+        return None  # builders are dicts, not transitions
     if not isinstance(payload, list) or not payload:
         return None
 
@@ -1027,7 +1027,7 @@ def _strip_node_comments(node) -> None:
 def strip_equation_comments_from_data(data) -> None:
     """Walk the raw YAML AST and strip inline ``#`` comments from equations.
 
-    Handles both scalar equations and mover sub-equation mappings.
+    Handles both scalar equations and builder sub-equation mappings.
     """
     eqs_node = mapping_get(data, "equations")
     if eqs_node is None:
@@ -1035,7 +1035,7 @@ def strip_equation_comments_from_data(data) -> None:
 
     for _, val in mapping_items(eqs_node):
         _strip_node_comments(val)
-        # Mover sub-equations are MappingNodes with (key, val) pairs
+        # Builder sub-equations are MappingNodes with (key, val) pairs
         if hasattr(val, "value") and isinstance(val.value, list):
             for item in val.value:
                 if isinstance(item, tuple) and len(item) == 2:
@@ -1050,7 +1050,7 @@ def extract_raw_equations(data) -> Dict:
     symbolic Bellman notation) that dolang cannot parse.
 
     Returns a dict of ``label → list[str]`` for scalar equations or
-    ``label → dict[str, list[str]]`` for mover sub-equations.
+    ``label → dict[str, list[str]]`` for builder sub-equations.
     """
     eqs_node = mapping_get(data, "equations")
     if eqs_node is None:

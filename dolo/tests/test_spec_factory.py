@@ -33,7 +33,7 @@ def registry(tmp_path):
     stage_b_dir = tmp_path / "stages" / "stage_b"
     stage_b_dir.mkdir(parents=True)
     (stage_b_dir / "stage_b_methods.yml").write_text(yaml.dump({
-        "methods": [{"on": "mover", "schemes": [{"scheme": "upper_envelope", "method": "FUES"}]}]
+        "methods": [{"on": "builder", "schemes": [{"scheme": "upper_envelope", "method": "FUES"}]}]
     }))
 
     return tmp_path
@@ -261,7 +261,7 @@ class TestMake:
         with pytest.raises(SpecFactoryError, match="not found"):
             make(recipe, registry_dir=str(registry))
 
-    def test_make_warns_unused_slot(self, registry):
+    def test_make_unknown_slot_raises(self, registry):
         path = _write_recipe(registry, {"stages": {
             "stage_a": {
                 "calibration": {"all": ["calibration/main"]},
@@ -270,7 +270,7 @@ class TestMake:
             }
         }})
         recipe = load(path)
-        with pytest.warns(UserWarning, match="not declared"):
+        with pytest.raises(SpecFactoryError, match="undeclared"):
             make(recipe, registry_dir=str(registry), phantom={"x": 1})
 
     def test_specgraph_period_range_lookup(self, registry):
@@ -313,8 +313,8 @@ class TestConsumerAPI:
 
 
 class TestSlotTierChecking:
-    def test_rejects_mixed_tier_slot(self, registry):
-        """Flat slot dict mixing calibration + settings keys must raise."""
+    def test_flat_draw_slot_merges_all_keys_into_calibration(self, registry):
+        """Flat draw dict is merged into calibration only; settings keys become stray cal entries."""
         path = _write_recipe(registry, {"stages": {
             "stage_a": {
                 "calibration": {"all": ["calibration/main", "$draw"]},
@@ -323,9 +323,11 @@ class TestSlotTierChecking:
             }
         }})
         recipe = load(path)
-        with pytest.raises(SpecFactoryError, match="Mixed tiers"):
-            make(recipe, registry_dir=str(registry),
-                 draw={"beta": 0.95, "n_a": 200})
+        spec = make(recipe, registry_dir=str(registry),
+                    draw={"beta": 0.95, "n_a": 200})
+        assert spec["stage_a"][0]["calibration"]["beta"] == 0.95
+        assert spec["stage_a"][0]["calibration"]["n_a"] == 200
+        assert spec["stage_a"][0]["settings"]["n_a"] == 200
 
     def test_pure_calibration_slot_ok(self, registry):
         """Flat slot dict with only calibration keys must work."""
@@ -341,24 +343,25 @@ class TestSlotTierChecking:
                      draw={"beta": 0.95, "gamma": 3.0})
         assert spec["stage_a"][0]["calibration"]["beta"] == 0.95
 
-    def test_tier_wrapped_slot_bypasses_check(self, registry):
-        """Explicitly wrapped slot dict must not trigger tier check."""
+    def test_tier_wrapped_slot_routes_dimensions(self, registry):
+        """Tier-wrapped draw routes calibration vs settings inner dicts."""
         path = _write_recipe(registry, {"stages": {
             "stage_a": {
                 "calibration": {"all": ["calibration/main", "$draw"]},
-                "settings": {"all": ["settings/default"]},
+                "settings": {"all": ["settings/default", "$draw"]},
                 "methods": {"all": ["stages/stage_a/stage_a_methods"]},
             }
         }})
         recipe = load(path)
         spec = make(recipe, registry_dir=str(registry),
-                     draw={"calibration": {"beta": 0.95},
-                           "settings": {"n_a": 500}})
+                    draw={"calibration": {"beta": 0.95},
+                          "settings": {"n_a": 500}})
         assert spec["stage_a"][0]["calibration"]["beta"] == 0.95
+        assert spec["stage_a"][0]["settings"]["n_a"] == 500
 
 
 class TestSpecFactoryFixes:
-    def test_method_switch_tuple_key(self, registry):
+    def test_method_switch_nested_dict(self, registry):
         path = _write_recipe(registry, {"stages": {
             "stage_b": {
                 "calibration": {"all": ["calibration/main"]},
@@ -371,13 +374,19 @@ class TestSpecFactoryFixes:
             recipe,
             registry_dir=str(registry),
             method_switch={
-                ("stage_b", "mover", "upper_envelope"): "NEGM",
+                "methods": [
+                    {
+                        "on": "builder",
+                        "schemes": [{"scheme": "upper_envelope", "method": "NEGM"}],
+                    }
+                ]
             },
         )
         patched = spec["stage_b"][0]["methods"]["methods"][0]["schemes"][0]["method"]
-        assert patched["__yaml_tag__"] == "NEGM"
+        assert patched == "NEGM"
 
-    def test_method_switch_bad_form_raises(self, registry):
+    def test_method_switch_flat_extra_keys_merge(self, registry):
+        """Non-methods-shaped slot dict keys merge at top level (no tuple-key validation)."""
         path = _write_recipe(registry, {"stages": {
             "stage_b": {
                 "calibration": {"all": ["calibration/main"]},
@@ -386,12 +395,12 @@ class TestSpecFactoryFixes:
             }
         }})
         recipe = load(path)
-        with pytest.raises(SpecFactoryError, match="tuple keys"):
-            make(
-                recipe,
-                registry_dir=str(registry),
-                method_switch={"upper_envelope": "NEGM"},
-            )
+        spec = make(
+            recipe,
+            registry_dir=str(registry),
+            method_switch={"upper_envelope": "NEGM"},
+        )
+        assert spec["stage_b"][0]["methods"]["upper_envelope"] == "NEGM"
 
     def test_parent_chain_resolution(self, registry):
         (registry / "calibration" / "main_parent.yaml").write_text(yaml.dump({
@@ -480,7 +489,7 @@ class TestSpecFactoryFixes:
                     "schemes": [{"scheme": "expectation", "method": "gauss-hermite"}],
                 },
                 {
-                    "on": "cntn_to_dcsn_mover",
+                    "on": "cntn_to_dcsn_builder",
                     "schemes": [{"scheme": "upper_envelope", "method": "FUES"}],
                 },
             ]
@@ -488,7 +497,7 @@ class TestSpecFactoryFixes:
         (stage_dir / "methods_overlay.yml").write_text(yaml.dump({
             "methods": [
                 {
-                    "on": "cntn_to_dcsn_mover",
+                    "on": "cntn_to_dcsn_builder",
                     "schemes": [{"scheme": "upper_envelope", "method": "NEGM"}],
                 }
             ]
@@ -510,10 +519,10 @@ class TestSpecFactoryFixes:
         methods = spec["stage_merge"][0]["methods"]["methods"]
         targets = {entry["on"]: entry for entry in methods}
         assert "E_y" in targets
-        assert "cntn_to_dcsn_mover" in targets
-        mover_scheme = targets["cntn_to_dcsn_mover"]["schemes"][0]
-        assert mover_scheme["scheme"] == "upper_envelope"
-        assert mover_scheme["method"] == "NEGM"
+        assert "cntn_to_dcsn_builder" in targets
+        builder_scheme = targets["cntn_to_dcsn_builder"]["schemes"][0]
+        assert builder_scheme["scheme"] == "upper_envelope"
+        assert builder_scheme["method"] == "NEGM"
 
     def test_source_file_strips_metadata_keys(self, registry):
         (registry / "calibration" / "meta_parent.yaml").write_text(yaml.dump({

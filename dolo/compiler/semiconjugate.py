@@ -20,16 +20,16 @@ Original (S = E ∘ max):
     The expectation is OUTSIDE the maximization.
     
     In ADC:
-        cntn_to_dcsn_mover: V[_dcsn] = max_c{ u(c) + β*V[_cntn] }
-        dcsn_to_arvl_mover: V[_arvl] = E_y(V[_dcsn])
+        cntn_to_dcsn_builder: V[_dcsn] = max_c{ u(c) + β*V[_cntn] }
+        dcsn_to_arvl_builder: V[_arvl] = E_y(V[_dcsn])
 
 Conjugate (Ŝ = max ∘ E):
     V[_arvl] = max_c{ u(c) + β*E_y[V'[_arvl]] }
     The expectation is INSIDE the maximization.
     
     In ADC:
-        cntn_to_dcsn_mover: V[_dcsn] = max_c{ u(c) + β*E_y(V[_cntn]) }
-        dcsn_to_arvl_mover: V[_arvl] = V[_dcsn]  (identity)
+        cntn_to_dcsn_builder: V[_dcsn] = max_c{ u(c) + β*E_y(V[_cntn]) }
+        dcsn_to_arvl_builder: V[_arvl] = V[_dcsn]  (identity)
 
 The transformation moves the expectation INSIDE the decision problem.
 The agent optimizes over a SMOOTH continuation value.
@@ -64,9 +64,9 @@ class SemiconjugateTransform:
     G_map: str
 
 
-def _extract_expectation_operator(mover_eq: str) -> Optional[Tuple[str, str]]:
+def _extract_expectation_operator(builder_eq: str) -> Optional[Tuple[str, str]]:
     """
-    Extract expectation operator from a mover equation.
+    Extract expectation operator from a builder equation.
     
     E.g., "V[_arvl] = E_{y}(V[_dcsn])" -> ("E_{y}", "y")
     
@@ -74,20 +74,20 @@ def _extract_expectation_operator(mover_eq: str) -> Optional[Tuple[str, str]]:
         (operator_string, shock_name) or None
     """
     # Match E_{y}(...) or E_y(...)
-    match = re.search(r'(E_\{?(\w+)\}?)\s*\(', mover_eq)
+    match = re.search(r'(E_\{?(\w+)\}?)\s*\(', builder_eq)
     if match:
         return (match.group(1), match.group(2))
     return None
 
 
-def _remove_expectation_from_mover(mover_eq: str) -> str:
+def _remove_expectation_from_builder(builder_eq: str) -> str:
     """
-    Remove expectation from a mover equation, making it identity.
+    Remove expectation from a builder equation, making it identity.
     
     E.g., "V[_arvl] = E_{y}(V[_dcsn])" -> "V[_arvl] = V[_dcsn]"
     """
     # Remove E_{y}(...) keeping the inside
-    result = re.sub(r'E_\{\w+\}\s*\(([^)]+)\)', r'\1', mover_eq)
+    result = re.sub(r'E_\{\w+\}\s*\(([^)]+)\)', r'\1', builder_eq)
     result = re.sub(r'E_\w+\s*\(([^)]+)\)', r'\1', result)
     # Remove orphaned "r *" (from shadow value)
     result = re.sub(r'^\s*r\s*\*\s*', '', result.strip())
@@ -129,8 +129,8 @@ def conjugate_transform(stage: Any) -> SemiconjugateTransform:
         Conjugate (Ŝ = max ∘ E): expectation INSIDE the max
     
     Key transformations:
-        1. cntn_to_dcsn_mover: Add E_y around continuation value V[_cntn]
-        2. dcsn_to_arvl_mover: Remove E_y (becomes identity)
+        1. cntn_to_dcsn_builder: Add E_y around continuation value V[_cntn]
+        2. dcsn_to_arvl_builder: Remove E_y (becomes identity)
     
     Args:
         stage: A SymbolicModel or dict with ADC structure
@@ -156,9 +156,9 @@ def conjugate_transform(stage: Any) -> SemiconjugateTransform:
     original_equations = original_data.get('equations', {})
     
     # ==========================================================================
-    # STEP 1: Extract expectation operator from dcsn_to_arvl_mover
+    # STEP 1: Extract expectation operator from dcsn_to_arvl_builder
     # ==========================================================================
-    dcsn_to_arvl = original_equations.get('dcsn_to_arvl_mover', {})
+    dcsn_to_arvl = original_equations.get('dcsn_to_arvl_builder', {})
     operator = "E_{y}"  # default
     shock_name = "y"
     
@@ -170,28 +170,28 @@ def conjugate_transform(stage: Any) -> SemiconjugateTransform:
                 operator, shock_name = extracted
     
     # ==========================================================================
-    # STEP 2: Add expectation INSIDE the decision (cntn_to_dcsn_mover)
+    # STEP 2: Add expectation INSIDE the decision (cntn_to_dcsn_builder)
     # ==========================================================================
-    if 'cntn_to_dcsn_mover' in equations:
-        mover = equations['cntn_to_dcsn_mover']
-        if isinstance(mover, dict):
+    if 'cntn_to_dcsn_builder' in equations:
+        builder = equations['cntn_to_dcsn_builder']
+        if isinstance(builder, dict):
             for key in ['Bellman', 'InvEuler', 'ShadowBellman']:
-                if key in mover and isinstance(mover[key], str):
+                if key in builder and isinstance(builder[key], str):
                     # Only add to Bellman and InvEuler (where continuation appears)
                     if key in ['Bellman', 'InvEuler']:
-                        mover[key] = _add_expectation_to_continuation(
-                            mover[key], operator
+                        builder[key] = _add_expectation_to_continuation(
+                            builder[key], operator
                         )
     
     # ==========================================================================
-    # STEP 3: Remove expectation from dcsn_to_arvl_mover (becomes identity)
+    # STEP 3: Remove expectation from dcsn_to_arvl_builder (becomes identity)
     # ==========================================================================
-    if 'dcsn_to_arvl_mover' in equations:
-        mover = equations['dcsn_to_arvl_mover']
-        if isinstance(mover, dict):
-            for key in list(mover.keys()):
-                if isinstance(mover[key], str):
-                    mover[key] = _remove_expectation_from_mover(mover[key])
+    if 'dcsn_to_arvl_builder' in equations:
+        builder = equations['dcsn_to_arvl_builder']
+        if isinstance(builder, dict):
+            for key in list(builder.keys()):
+                if isinstance(builder[key], str):
+                    builder[key] = _remove_expectation_from_builder(builder[key])
     
     # ==========================================================================
     # STEP 4: Update dolo_plus metadata
@@ -214,7 +214,7 @@ def conjugate_transform(stage: Any) -> SemiconjugateTransform:
         'relation': 'conjugate',
         'original_operator': 'S = E_y ∘ max_c',
         'conjugate_operator': 'Ŝ = max_c ∘ E_y',
-        'transformation': 'Expectation moved from dcsn_to_arvl_mover INSIDE cntn_to_dcsn_mover',
+        'transformation': 'Expectation moved from dcsn_to_arvl_builder INSIDE cntn_to_dcsn_builder',
         'F_map': f'Ṽ(a) = E_{shock_name}[V(g(a,{shock_name}))]',
         'G_map': 'V(w) = max_c{u(c) + β*Ṽ(w-c)}',
         'iterates_lemma': 'S^n = G ∘ Ŝ^{n-1} ∘ F',
@@ -258,8 +258,8 @@ Original (S = E ∘ max):
         Expectation is OUTSIDE the max
     
     In ADC:
-        cntn_to_dcsn_mover: V[_dcsn] = max_c{ u(c) + β*V[_cntn] }
-        dcsn_to_arvl_mover: V[_arvl] = E_y(V[_dcsn])  ← expectation here
+        cntn_to_dcsn_builder: V[_dcsn] = max_c{ u(c) + β*V[_cntn] }
+        dcsn_to_arvl_builder: V[_arvl] = E_y(V[_dcsn])  ← expectation here
 
 Conjugate (Ŝ = max ∘ E):
     V = max_c{ u(c) + β*E_y[V'] }
@@ -267,10 +267,10 @@ Conjugate (Ŝ = max ∘ E):
         Expectation is INSIDE the max (in continuation value)
     
     In ADC:
-        cntn_to_dcsn_mover: V[_dcsn] = max_c{ u(c) + β*E_y(V[_cntn]) }
+        cntn_to_dcsn_builder: V[_dcsn] = max_c{ u(c) + β*E_y(V[_cntn]) }
                                                      ^^^^
                                           Expectation moved HERE
-        dcsn_to_arvl_mover: V[_arvl] = V[_dcsn]  (identity)
+        dcsn_to_arvl_builder: V[_arvl] = V[_dcsn]  (identity)
 """)
     
     print("--- Why This Matters ---")

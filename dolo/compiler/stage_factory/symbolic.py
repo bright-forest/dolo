@@ -455,10 +455,10 @@ class SymbolicModel:
                         # TODO: we should check here that equations are well specified
                         d[g] = [str_expression(e) for e in eq_list]
 
-                # Dolo+ stage-mode: one-level mapping of sub-equations (e.g. mover blocks)
+                # Dolo+ stage-mode: one-level mapping of sub-equations (e.g. builder blocks)
                 elif isinstance(v, yaml.nodes.MappingNode):
                     # Accept nested sub-equations for any stage that declares
-                    # mover blocks or branching transitions. The old
+                    # builder blocks or branching transitions. The old
                     # dolo_plus.dialect guard is removed — nested mappings
                     # under equations are the standard dolo-plus pattern.
                     if g in ("arbitrage",):
@@ -481,7 +481,7 @@ class SymbolicModel:
                         self._branch_transitions = branch_transitions
                         d[g] = branch_transitions  # Also store in equations dict
                     else:
-                        # Standard adc-stage sub-equations (mover blocks)
+                        # Standard adc-stage sub-equations (builder blocks)
                         subeqs = {}
                         for sub_label, sub_v in mapping_items(v):
                             if isinstance(sub_v, yaml.nodes.ScalarNode):

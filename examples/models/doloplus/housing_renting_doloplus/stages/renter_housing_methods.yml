@@ -1,7 +1,0 @@
-stage: RenterHousingChoice
-
-methods:
-  - on: cntn_to_dcsn_mover
-    schemes:
-      - scheme: discrete_choice
-        method: !max

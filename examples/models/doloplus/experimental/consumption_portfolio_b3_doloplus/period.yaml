@@ -1,6 +1,0 @@
-name: ConsPortPeriodB3
-
-stages:
-  - cons_stage
-  - portfolio_stage
-

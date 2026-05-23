@@ -52,10 +52,10 @@ def test_yaml_import_doloplus_adc_stage_is_parse_only() -> None:
 
     # 0.1a requires an `equations` view (dolang+ parsing) including support for sub-equations.
     eqs = model.equations
-    assert "cntn_to_dcsn_mover" in eqs
-    assert isinstance(eqs["cntn_to_dcsn_mover"], dict)
-    assert "Bellman" in eqs["cntn_to_dcsn_mover"]
-    assert isinstance(eqs["cntn_to_dcsn_mover"]["Bellman"], list)
+    assert "cntn_to_dcsn_builder" in eqs
+    assert isinstance(eqs["cntn_to_dcsn_builder"], dict)
+    assert "Bellman" in eqs["cntn_to_dcsn_builder"]
+    assert isinstance(eqs["cntn_to_dcsn_builder"]["Bellman"], list)
 
 
 # =====================================================================
@@ -140,8 +140,8 @@ def test_branching_stage_equations() -> None:
     eqs = model.equations
     assert "arvl_to_dcsn_transition" in eqs
     assert "dcsn_to_cntn_transition" in eqs
-    assert "cntn_to_dcsn_mover" in eqs
-    assert "dcsn_to_arvl_mover" in eqs
+    assert "cntn_to_dcsn_builder" in eqs
+    assert "dcsn_to_arvl_builder" in eqs
 
 
 def test_non_branching_stage_no_branch_attrs() -> None:
@@ -192,10 +192,10 @@ equations:
       a[>] = x
     retire: |
       a[>] = x
-  cntn_to_dcsn_mover:
+  cntn_to_dcsn_builder:
     Bellman: |
       x = x
-  dcsn_to_arvl_mover:
+  dcsn_to_arvl_builder:
     Bellman: |
       x[<] = x
 """

@@ -47,15 +47,15 @@ equations:
         assert 'transition' in targets
         assert 'arbitrage' in targets
 
-    def test_extract_mover_with_subequations(self, temp_file):
-        """Test extraction of mover with sub-equation labels."""
+    def test_extract_builder_with_subequations(self, temp_file):
+        """Test extraction of builder with sub-equation labels."""
         yaml_content = """
 symbols:
     states: [w]
     controls: [c]
 
 equations:
-    cntn_to_dcsn_mover:
+    cntn_to_dcsn_builder:
         Bellman: |
             V = max(c)
         InvEuler: |
@@ -74,13 +74,13 @@ equations:
 
         targets = extract_stage_targets(stage)
 
-        assert 'cntn_to_dcsn_mover' in targets
-        assert 'cntn_to_dcsn_mover.Bellman' in targets
-        assert 'cntn_to_dcsn_mover.InvEuler' in targets
-        assert 'cntn_to_dcsn_mover.ShadowBellman' in targets
+        assert 'cntn_to_dcsn_builder' in targets
+        assert 'cntn_to_dcsn_builder.Bellman' in targets
+        assert 'cntn_to_dcsn_builder.InvEuler' in targets
+        assert 'cntn_to_dcsn_builder.ShadowBellman' in targets
 
-    def test_implied_forward_movers(self, temp_file):
-        """Test that forward movers are implied from transitions."""
+    def test_implied_forward_builders(self, temp_file):
+        """Test that forward builders are implied from transitions."""
         yaml_content = """
 symbols:
     states: [w]
@@ -106,9 +106,9 @@ equations:
         assert 'arvl_to_dcsn_transition' in targets
         assert 'dcsn_to_cntn_transition' in targets
 
-        # Implied forward movers should be added
-        assert 'arvl_to_dcsn_mover' in targets
-        assert 'dcsn_to_cntn_mover' in targets
+        # Implied forward builders should be added
+        assert 'arvl_to_dcsn_builder' in targets
+        assert 'dcsn_to_cntn_builder' in targets
 
 
 class TestExtractOperatorInstances:
@@ -121,7 +121,7 @@ symbols:
     states: [w]
 
 equations:
-    dcsn_to_arvl_mover:
+    dcsn_to_arvl_builder:
         Bellman: |
             V[_arvl] = E_{y}(V[_dcsn])
 """
@@ -145,9 +145,9 @@ symbols:
     states: [w]
 
 equations:
-    mover1: |
+    builder1: |
         V = E_{y}(V) + E_{z}(W)
-    mover2: |
+    builder2: |
         U = E_{w}(U)
 """
         path = temp_file(yaml_content)
@@ -172,7 +172,7 @@ symbols:
     states: [w]
 
 equations:
-    mover: |
+    builder: |
         V = E_{w,z}(V)
 """
         path = temp_file(yaml_content)
@@ -286,7 +286,7 @@ equations:
         w = r*b
     arbitrage: |
         1 - beta
-    mover:
+    builder:
         Bellman: |
             V = E_{y}(V)
 """
@@ -312,8 +312,8 @@ methods:
         # All targets should be present
         assert 'transition' in methodized.methods
         assert 'arbitrage' in methodized.methods
-        assert 'mover' in methodized.methods
-        assert 'mover.Bellman' in methodized.methods
+        assert 'builder' in methodized.methods
+        assert 'builder.Bellman' in methodized.methods
         assert 'E_y' in methodized.methods
 
         # E_y should have schemes
@@ -397,7 +397,7 @@ symbols:
 equations:
     transition: |
         w = r*b
-    mover:
+    builder:
         Bellman: |
             V = E_{y}(V)
 """
@@ -415,6 +415,6 @@ equations:
         assert "stage: test_stage" in template
         assert "on: E_y" in template
         assert "on: transition" in template
-        assert "on: mover" in template
-        assert "on: mover.Bellman" in template
+        assert "on: builder" in template
+        assert "on: builder.Bellman" in template
         assert "schemes: []" in template

@@ -8,10 +8,7 @@ the sequential merge per (stage, dimension, period-group).
 from __future__ import annotations
 
 import copy
-import re
-import warnings
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -21,6 +18,56 @@ from .loader import SpecFactoryError
 
 _DIMENSIONS = ("calibration", "settings", "methods")
 _KNOWN_SOURCE_METADATA_KEYS = {"parent", "description", "version", "__comment__"}
+
+# Items in a list of dicts are matched by these key fields, in priority
+# order. If items in both base and overlay share one of these keys,
+# do structural match-and-merge; otherwise the overlay list replaces
+# the base list wholesale.
+_LIST_KEY_FIELDS = ("on", "scheme")
+
+_TIER_NAMES = frozenset({"calibration", "settings", "methods"})
+
+
+def _deep_merge(base, overlay):
+    """Recursive partial merge over dicts, keyed lists, and scalars."""
+    if isinstance(base, dict) and isinstance(overlay, dict):
+        result = dict(base)
+        for k, v in overlay.items():
+            if k in result:
+                result[k] = _deep_merge(result[k], v)
+            else:
+                result[k] = copy.deepcopy(v)
+        return result
+    if isinstance(base, list) and isinstance(overlay, list):
+        return _merge_keyed_list(base, overlay)
+    return copy.deepcopy(overlay)
+
+
+def _merge_keyed_list(base, overlay):
+    """Match list-of-dicts items by their structural key field."""
+    if not (all(isinstance(x, dict) for x in base)
+            and all(isinstance(x, dict) for x in overlay)):
+        return copy.deepcopy(overlay)
+    key_field = None
+    for kf in _LIST_KEY_FIELDS:
+        if all(kf in x for x in base + overlay):
+            key_field = kf
+            break
+    if key_field is None:
+        return copy.deepcopy(overlay)
+    result = []
+    seen = set()
+    for x in base:
+        ov = next((o for o in overlay if o.get(key_field) == x[key_field]), None)
+        if ov is not None:
+            result.append(_deep_merge(x, ov))
+            seen.add(x[key_field])
+        else:
+            result.append(copy.deepcopy(x))
+    for o in overlay:
+        if o.get(key_field) not in seen:
+            result.append(copy.deepcopy(o))
+    return result
 
 
 def _resolve_source_path(name, registry_dir):
@@ -131,209 +178,46 @@ def _load_source_file(path, registry_dir):
 
 
 def _merge_chain(sources):
-    """Sequential right-biased merge of a list of dicts."""
+    """Sequential recursive merge of a chain of dicts."""
     result = {}
     for src in sources:
         if isinstance(src, dict):
-            result.update(src)
+            result = _deep_merge(result, src)
     return result
 
 
-def _is_method_override_dict(d):
-    """Detect if a dict is a tuple-keyed method override.
-    
-    override_methods expects: {(stage, target, scheme): tag, ...}
-    """
-    if not d:
-        return False
-    return any(isinstance(k, tuple) for k in d)
-
-
-def _apply_method_overrides(base_methods, overrides, stage_name):
-    """Apply structured method overrides to a base methods dict.
-    
-    Wraps the base methods into the stage_sources format expected
-    by override_methods, applies overrides, then unwraps.
-    """
-    from .method_overrides import override_methods
-
-    # override_methods expects stage_sources: {stage_name: {"methods": <methods_dict>}}
-    # Filter overrides to only those targeting this stage
-    stage_overrides = {}
-    for key, tag in overrides.items():
-        if isinstance(key, tuple) and len(key) == 3:
-            s_name, target, scheme = key
-            if s_name == stage_name:
-                stage_overrides[(s_name, target, scheme)] = tag
-        elif isinstance(key, tuple) and len(key) == 2:
-            target, scheme = key
-            stage_overrides[(stage_name, target, scheme)] = tag
-
-    if not stage_overrides:
-        return base_methods
-
-    stage_sources = {stage_name: {"methods": base_methods}}
-    patched = override_methods(stage_sources, stage_overrides)
-    return patched[stage_name]["methods"]
-
-
-def _check_slot_tier(slot_dict, dim_name, slot_name):
-    """Validate that a flat slot dict doesn't mix calibration and settings keys.
-
-    Common settings keys (grid sizes, tolerances) should not appear in
-    calibration slots and vice versa.
-    """
-    if not slot_dict:
-        return
-    if any(k in ("calibration", "settings", "methods") for k in slot_dict):
-        return
-    _KNOWN_SETTINGS_PREFIXES = ("n_", "tol", "max_iter", "grid_")
-    _KNOWN_SETTINGS = {"n_a", "n_h", "n_w", "tol", "max_iter", "N_wage",
-                        "n_sections", "store_cntn", "warmup_periods",
-                        "normalisation", "fues_lb", "fues_eps_d"}
-
-    has_settings = any(
-        k in _KNOWN_SETTINGS or any(k.startswith(p) for p in _KNOWN_SETTINGS_PREFIXES)
-        for k in slot_dict
-    )
-    has_params = any(
-        k not in _KNOWN_SETTINGS and not any(k.startswith(p) for p in _KNOWN_SETTINGS_PREFIXES)
-        for k in slot_dict
-    )
-
-    if has_settings and has_params:
-        settings_keys = [k for k in slot_dict if k in _KNOWN_SETTINGS or
-                         any(k.startswith(p) for p in _KNOWN_SETTINGS_PREFIXES)]
-        param_keys = [k for k in slot_dict if k not in settings_keys]
-        raise SpecFactoryError(
-            f"Mixed tiers in slot '{slot_name}': "
-            f"contains both parameter keys ({param_keys[:3]}) and "
-            f"settings keys ({settings_keys[:3]}).\n"
-            f"  x Cannot auto-wrap a slot dict that mixes calibration and settings.\n"
-            f"  i Use the explicit form: {slot_name}={{\"calibration\": {{...}}, \"settings\": {{...}}}}"
-        )
-
-
 def _build_chain(source_names, slot_bindings, registry_dir, dim_name, source_cache):
-    """Build the list of resolved items for one source chain.
-
-    For calibration/settings: returns list of flat dicts.
-    For methods: returns list of (dict | tuple-keyed-override).
-    """
     chain = []
     for name in source_names:
         if name.startswith("$"):
             slot_name = name[1:]
             slot_val = slot_bindings.get(slot_name, {})
-            if isinstance(slot_val, dict):
-                tier_wrapped = any(
-                    k in ("calibration", "settings", "methods") for k in slot_val
-                )
-                if tier_wrapped:
-                    slot_val = slot_val.get(dim_name, {})
+            if not isinstance(slot_val, dict):
+                chain.append({})
+                continue
+            if slot_val and set(slot_val).issubset(_TIER_NAMES):
+                inner = slot_val.get(dim_name, {})
+                # Tier bundles: route inner dict/list per dimension. Methods-slot
+                # YAML is {"methods": [ ... ]}; the inner value for key
+                # "methods" is a list and must stay wrapped so _merge_chain
+                # merges a dict (bare lists are skipped).
                 if dim_name == "methods":
-                    if _is_method_override_dict(slot_val):
-                        chain.append(slot_val)
-                        continue
-                    if slot_val:
-                        raise SpecFactoryError(
-                            f"Slot '{slot_name}' for methods must use tuple keys "
-                            f"{{(stage, target, scheme): tag}}. "
-                            f"Received keys: {list(slot_val.keys())[:3]}"
-                        )
-                elif not tier_wrapped:
-                    # Only run the tier-guess heuristic on unwrapped flat dicts.
-                    # If the user already tier-wrapped, they've told us the tier
-                    # explicitly and we trust their keys.
-                    _check_slot_tier(slot_val, dim_name, slot_name)
-            chain.append(slot_val if isinstance(slot_val, dict) else {})
+                    if isinstance(inner, list):
+                        chain.append({"methods": inner})
+                    elif isinstance(inner, dict):
+                        chain.append(inner)
+                    else:
+                        chain.append({})
+                else:
+                    chain.append(inner if isinstance(inner, dict) else {})
+            else:
+                chain.append(slot_val)
         else:
             if name not in source_cache:
                 path = _resolve_source_path(name, registry_dir)
                 source_cache[name] = _load_source_file(path, registry_dir)
             chain.append(source_cache[name])
     return chain
-
-
-def _merge_methods_dict(base_methods, overlay_methods):
-    """Merge methods dicts by target+scheme instead of flat replacement."""
-    base = copy.deepcopy(base_methods) if isinstance(base_methods, dict) else {}
-    overlay = overlay_methods if isinstance(overlay_methods, dict) else {}
-
-    for key, value in overlay.items():
-        if key != "methods":
-            base[key] = copy.deepcopy(value)
-
-    base_entries = base.get("methods", [])
-    overlay_entries = overlay.get("methods", [])
-    if not isinstance(base_entries, list):
-        base_entries = []
-    if not isinstance(overlay_entries, list):
-        overlay_entries = []
-
-    by_target = {}
-    for entry in base_entries:
-        if isinstance(entry, dict) and "on" in entry:
-            by_target[entry["on"]] = entry
-
-    for overlay_entry in overlay_entries:
-        if not isinstance(overlay_entry, dict):
-            continue
-        target = overlay_entry.get("on")
-        if target is None or target not in by_target:
-            base_entries.append(copy.deepcopy(overlay_entry))
-            if target is not None:
-                by_target[target] = base_entries[-1]
-            continue
-
-        base_entry = by_target[target]
-        base_schemes = base_entry.get("schemes", [])
-        overlay_schemes = overlay_entry.get("schemes", [])
-        if not isinstance(base_schemes, list):
-            base_schemes = []
-            base_entry["schemes"] = base_schemes
-        if not isinstance(overlay_schemes, list):
-            overlay_schemes = []
-
-        scheme_to_idx = {}
-        for idx, scheme_obj in enumerate(base_schemes):
-            if isinstance(scheme_obj, dict):
-                scheme_name = scheme_obj.get("scheme")
-                if scheme_name is not None:
-                    scheme_to_idx[scheme_name] = idx
-
-        for overlay_scheme in overlay_schemes:
-            if not isinstance(overlay_scheme, dict):
-                continue
-            scheme_name = overlay_scheme.get("scheme")
-            if scheme_name in scheme_to_idx:
-                base_schemes[scheme_to_idx[scheme_name]] = copy.deepcopy(overlay_scheme)
-            else:
-                base_schemes.append(copy.deepcopy(overlay_scheme))
-                if scheme_name is not None:
-                    scheme_to_idx[scheme_name] = len(base_schemes) - 1
-
-    base["methods"] = base_entries
-    return base
-
-
-def _resolve_methods_chain(chain, stage_name):
-    """Resolve a methods chain using structured patching.
-    
-    File-backed sources are merged via right-biased update.
-    Tuple-keyed override dicts (from $method_switch slots) are
-    applied via override_methods at the (target, scheme) level.
-    """
-    base_methods = {}
-    for item in chain:
-        if not item:
-            continue
-        if _is_method_override_dict(item):
-            base_methods = _apply_method_overrides(base_methods, item, stage_name)
-        else:
-            if isinstance(item, dict):
-                base_methods = _merge_methods_dict(base_methods, item)
-    return base_methods
 
 
 def make(recipe, registry_dir, **slot_bindings):
@@ -348,7 +232,7 @@ def make(recipe, registry_dir, **slot_bindings):
         as paths relative to this directory.
     **slot_bindings
         Named slot values. E.g., draw={"beta": 0.95},
-        method_switch={("adjuster_cons", "cntn_to_dcsn_mover", "upper_envelope"): "NEGM"}.
+        method_switch={"methods": [{"on": "builder", "schemes": [...]}]}.
         Unfilled slots contribute {} (empty dict).
 
     Returns
@@ -359,12 +243,13 @@ def make(recipe, registry_dir, **slot_bindings):
     registry_dir = Path(registry_dir)
     source_cache = {}
 
-    for slot_name in slot_bindings:
-        if slot_name not in recipe.slots:
-            warnings.warn(
-                f"Slot '{slot_name}' provided but not declared in spec_factory. "
-                f"Declared slots: {sorted(recipe.slots)}"
-            )
+    unknown = [s for s in slot_bindings if s not in recipe.slots]
+    if unknown:
+        raise SpecFactoryError(
+            f"Slot bindings reference undeclared slots: {sorted(unknown)}\n"
+            f"  Declared slots: {sorted(recipe.slots)}\n"
+            f"  Hint: check spec_factory.yaml or fix the slot name."
+        )
 
     stage_data = {}
 
@@ -376,41 +261,13 @@ def make(recipe, registry_dir, **slot_bindings):
         for dim in _DIMENSIONS:
             dim_recipe = getattr(stage_recipe, dim)
             all_sources = dim_recipe.get("all", [])
-
-            if dim == "methods":
-                all_chain = _build_chain(
-                    all_sources, slot_bindings, registry_dir, dim, source_cache
-                )
-                resolved_methods = _resolve_methods_chain(all_chain, stage_name)
-
-                if "methods" not in stage_data[stage_name]:
-                    stage_data[stage_name]["methods"] = {}
-                stage_data[stage_name]["methods"]["all"] = resolved_methods
-            else:
-                all_chain = _build_chain(
-                    all_sources, slot_bindings, registry_dir, dim, source_cache
-                )
-                resolved_all = _merge_chain(all_chain)
-
-                if dim not in stage_data[stage_name]:
-                    stage_data[stage_name][dim] = {}
-                stage_data[stage_name][dim]["all"] = resolved_all
-
+            chain = _build_chain(all_sources, slot_bindings, registry_dir, dim, source_cache)
+            resolved = _merge_chain(chain)
+            stage_data[stage_name][dim] = {"all": resolved}
             for key, range_sources in dim_recipe.items():
                 if key == "all":
                     continue
-                range_chain = _build_chain(
-                    range_sources, slot_bindings, registry_dir, dim, source_cache
-                )
-                if dim == "methods":
-                    base = copy.deepcopy(stage_data[stage_name]["methods"]["all"])
-                    range_resolved = _resolve_methods_chain(
-                        [base] + range_chain, stage_name
-                    )
-                    stage_data[stage_name]["methods"][key] = range_resolved
-                else:
-                    range_resolved = dict(stage_data[stage_name][dim]["all"])
-                    range_resolved.update(_merge_chain(range_chain))
-                    stage_data[stage_name][dim][key] = range_resolved
+                rng_chain = _build_chain(range_sources, slot_bindings, registry_dir, dim, source_cache)
+                stage_data[stage_name][dim][key] = _merge_chain([resolved] + rng_chain)
 
     return SpecGraph(stage_data)
