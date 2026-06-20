@@ -74,28 +74,42 @@ def extract_operator_instances(stage) -> List[str]:
     """
     Extract operator instance IDs from equation bodies.
 
-    Finds expectation operators like E_{y}(...) → 'E_y'
-    Multiple subscripts: E_{w,z}(...) → 'E_w_z'
+    Finds:
+    - expectation operators: ``E_{y}(...)`` → ``'E_y'``
+      (multiple subscripts ``E_{w,z}(...)`` → ``'E_w_z'``);
+    - maximisation operators: ``max_{c}(...)`` → ``'max_c'`` and
+      ``argmax_{c}(...)`` → ``'argmax_c'`` (spec 0.1f) so fine-grain
+      maximisation can attach as a named methodization node.
 
     Args:
         stage: SymbolicModel with parsed YAML
 
     Returns:
-        List of operator instance IDs, e.g.: ['E_y', 'E_w']
+        List of operator instance IDs, e.g.: ['E_y', 'argmax_c', 'max_c']
     """
     operators = set()
 
+    # argmax must be matched before max (max is a substring of argmax); we test
+    # argmax first per token so `argmax_{c}` yields 'argmax_c', not 'max_c'.
     expectation_pattern = re.compile(r'E_\{([^}]+)\}\s*\(')
+    argmax_pattern = re.compile(r'argmax_\{([^}]+)\}')
+    max_pattern = re.compile(r'(?<![A-Za-z])max_\{([^}]+)\}')
 
     equations = _get_equations_block(stage)
     if not equations:
         return list(operators)
 
+    def _subscript_id(prefix: str, subscript: str) -> str:
+        return prefix + subscript.replace(',', '_').replace(' ', '')
+
     def extract_from_text(text: str):
         for match in expectation_pattern.finditer(text):
-            subscript = match.group(1)
-            op_id = 'E_' + subscript.replace(',', '_').replace(' ', '')
-            operators.add(op_id)
+            operators.add(_subscript_id('E_', match.group(1)))
+        for match in argmax_pattern.finditer(text):
+            operators.add(_subscript_id('argmax_', match.group(1)))
+        # the negative-lookbehind excludes the `max_` inside `argmax_`
+        for match in max_pattern.finditer(text):
+            operators.add(_subscript_id('max_', match.group(1)))
 
     def walk_equations(obj):
         if isinstance(obj, str):
@@ -162,7 +176,8 @@ def load_methodization(source: Union[str, Path, dict]) -> dict:
     """
     import types
     if isinstance(source, (dict, types.MappingProxyType)):
-        return _fix_on_keys(dict(source) if isinstance(source, types.MappingProxyType) else source)
+        raw = dict(source) if isinstance(source, types.MappingProxyType) else source
+        return _normalize_methods(_fix_on_keys(raw))
 
     path = Path(source)
     if not path.exists():
@@ -185,7 +200,7 @@ def load_methodization(source: Union[str, Path, dict]) -> dict:
     with open(path, 'r', encoding='utf-8') as f:
         data = yaml.load(f, Loader=TagPreservingLoader)
 
-    return _fix_on_keys(data)
+    return _normalize_methods(_fix_on_keys(data), source=str(path))
 
 
 def _fix_on_keys(data: Any) -> Any:
@@ -205,6 +220,145 @@ def _fix_on_keys(data: Any) -> Any:
         return result
     elif isinstance(data, list):
         return [_fix_on_keys(item) for item in data]
+    return data
+
+
+# -----------------------------------------------------------------------------
+# Operator-slot (no-schemes) normalization — spec 0.1d.1
+# -----------------------------------------------------------------------------
+
+# Inverse of the spec 0.1d.1 §3 "scheme → named-node" table. It maps a named
+# node back to the legacy scheme name, so a new per-node entry (which omits the
+# scheme name) can be normalized into the legacy `schemes:`-list block that
+# every downstream consumer (spec_factory, method_overrides) already reads.
+#
+# The map is keyed by node *family*: an exact node name, or a prefix for the
+# operator-instance families (`E_`, `max_`, `argmax_`). A node not in the table
+# keeps `scheme: None` in the synthesised block — the method tag is still the
+# load-bearing field, and the scheme name is only used for legacy override
+# addressing.
+_NODE_TO_SCHEME_EXACT = {
+    "cntn_to_dcsn_builder": "bellman_backward",
+    "dcsn_to_arvl_builder": "bellman_backward",
+    "policy": "bellman_backward",
+    "evaluate": "interpolation",
+    "upper_env": "upper_envelope",
+    "arvl_to_dcsn_builder": "simulation",
+    "dcsn_to_cntn_builder": "simulation",
+}
+
+_NODE_TO_SCHEME_PREFIX = (
+    ("argmax_", "maximization"),
+    ("max_", "maximization"),
+    ("E_", "expectation"),
+)
+
+
+def _scheme_for_node(node: str) -> Optional[str]:
+    """Map a named node to its legacy scheme name (spec 0.1d.1 §3), or None."""
+    if not isinstance(node, str):
+        return None
+    if node in _NODE_TO_SCHEME_EXACT:
+        return _NODE_TO_SCHEME_EXACT[node]
+    for prefix, scheme in _NODE_TO_SCHEME_PREFIX:
+        if node.startswith(prefix):
+            return scheme
+    return None
+
+
+def _entry_is_new_surface(entry: dict) -> bool:
+    """A per-named-node (no-schemes) entry carries `method:` and no `schemes:`."""
+    return "method" in entry and "schemes" not in entry
+
+
+def _normalize_entry(entry: dict, source: Optional[str] = None) -> dict:
+    """
+    Normalize one methodization entry to the canonical `schemes:`-list shape.
+
+    - Legacy entry (has `schemes:`) — returned unchanged.
+    - New per-node entry (`method: !tag`, optional `settings`/`equations`/
+      `handler`, no `schemes:`) — folded into a single synthetic scheme block,
+      with `scheme:` derived from the node→scheme inverse map.
+    - Bare entry (`on:` only, no `schemes:`, no `method:`) — gets `schemes: []`.
+    """
+    if not isinstance(entry, dict):
+        return entry
+
+    # Legacy surface: leave the schemes list exactly as authored.
+    if "schemes" in entry:
+        return entry
+
+    on = entry.get("on")
+
+    # New per-node surface: synthesise one scheme block.
+    if "method" in entry:
+        block = {"scheme": _scheme_for_node(on), "method": entry["method"]}
+        if "settings" in entry:
+            block["settings"] = entry["settings"]
+        if "equations" in entry:
+            block["equations"] = entry["equations"]
+        # `handler:` is the new name for the old `tool:` slot (spec 0.1d.1 §6).
+        # Carry it under both keys so old (`tool`) and new (`handler`) consumers
+        # both resolve.
+        if "handler" in entry:
+            block["handler"] = entry["handler"]
+            block["tool"] = entry["handler"]
+        elif "tool" in entry:
+            block["tool"] = entry["tool"]
+            block["handler"] = entry["tool"]
+
+        normalized = {"on": on, "schemes": [block]}
+        # Preserve any other authoring keys on the entry untouched.
+        for k, v in entry.items():
+            if k not in ("on", "method", "settings", "equations", "handler", "tool"):
+                normalized[k] = v
+        return normalized
+
+    # Bare entry: no method attached.
+    normalized = dict(entry)
+    normalized.setdefault("schemes", [])
+    return normalized
+
+
+def _normalize_methods(data: Any, source: Optional[str] = None) -> Any:
+    """
+    Normalize a loaded methodization config so every method entry carries a
+    `schemes:`-list (the canonical internal shape). Backwards-compatible: legacy
+    entries pass through unchanged; new per-node entries are folded in.
+
+    A deprecation note is emitted (once per load) if any legacy `scheme:` block
+    is encountered, to steer authors toward the operator-slot surface.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    methods = data.get("methods")
+    if not isinstance(methods, list):
+        return data
+
+    legacy_seen = False
+    normalized_methods = []
+    for entry in methods:
+        if isinstance(entry, dict) and "schemes" in entry:
+            for block in entry["schemes"]:
+                if isinstance(block, dict) and "scheme" in block:
+                    legacy_seen = True
+                    break
+        normalized_methods.append(_normalize_entry(entry, source=source))
+
+    if legacy_seen:
+        import warnings
+        where = f" ({source})" if source else ""
+        warnings.warn(
+            "Methodization uses the legacy `scheme:`/`schemes:` surface"
+            f"{where}; migrate to the operator-slot form "
+            "(`on: <node>` / `method: !tag`, no `schemes:` list) — spec 0.1d.1.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    data = dict(data)
+    data["methods"] = normalized_methods
     return data
 
 

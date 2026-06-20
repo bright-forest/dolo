@@ -977,6 +977,190 @@ def get_type(d):
         return None
 
 
+# -----------------------------------------------------------------------------
+# Kernel/policy desugaring — spec 0.3 §4
+# -----------------------------------------------------------------------------
+#
+# A dolang+ stage's backward direction reorganises into two blocks (spec 0.3):
+#   1. a backward EVALUATION block (`cntn_to_dcsn` / `dcsn_to_arvl`), the induced
+#      aggregator — value/marginal field equations, carrying NO `max`; and
+#   2. a separate `policy` block that constructs σ (the `argmax`, or the
+#      EGM/inverse-Euler lines), and carries the solution method.
+#
+# The legacy single-builder form (`cntn_to_dcsn_opr` / `*_builder` with
+# `Bellman: V = max_c{...}` + InvEuler/ShadowBellman/MarginalBellman) must keep
+# parsing and must NOT silently change meaning. `desugar_kernel_policy` lifts the
+# `max` out of the value line into a synthesised `policy` block — denotationally
+# identical, no model re-meant (spec 0.3 §4, §7.5).
+#
+# This is a pure transform over the parsed `equations` dict (re-binding style, no
+# mutation of the stage). Models authored directly in the two-block form pass
+# through unchanged (idempotent).
+
+# Legacy backward-builder block name -> canonical evaluation block name.
+_LEGACY_BACKWARD_BLOCKS = {
+    "cntn_to_dcsn_opr": "cntn_to_dcsn",
+    "cntn_to_dcsn_builder": "cntn_to_dcsn",
+    "dcsn_to_arvl_opr": "dcsn_to_arvl",
+    "dcsn_to_arvl_builder": "dcsn_to_arvl",
+}
+
+# Legacy sub-equation label -> (canonical evaluation role | policy role).
+# `Bellman` carries the value equation (possibly with `max`); `MarginalBellman`
+# / `ShadowBellman` carry the marginal; the remaining policy-construction lines
+# (`InvEuler`, EGM regrid, envelope) move verbatim into the `policy` block.
+_EVAL_VALUE_LABELS = ("Bellman",)
+_EVAL_MARGINAL_LABELS = ("MarginalBellman", "ShadowBellman")
+
+
+def _extract_max(value_eq: str):
+    """
+    Split a value equation of the form ``LHS = max_{VAR}(INNER)`` into its parts.
+
+    Returns ``(lhs, var, inner)`` if a top-level ``max_{...}(...)`` is present on
+    the RHS, else ``None``. The match is paren-balanced so a nested objective
+    (which itself contains parentheses) is captured intact.
+    """
+    import re
+
+    if "=" not in value_eq:
+        return None
+    lhs, rhs = value_eq.split("=", 1)
+    rhs = rhs.strip()
+
+    m = re.match(r"^max_\{([^}]+)\}\s*\(", rhs)
+    if m is None:
+        return None
+
+    var = m.group(1).strip()
+    open_idx = rhs.index("(", m.end() - 1)
+    # paren-balance scan from the opening '(' of max_{...}(
+    depth = 0
+    for i in range(open_idx, len(rhs)):
+        ch = rhs[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                inner = rhs[open_idx + 1:i]
+                trailing = rhs[i + 1:].strip()
+                if trailing:
+                    # something after the closing paren — not a clean max(...)
+                    return None
+                return lhs.strip(), var, inner.strip()
+    return None
+
+
+def _re_argmax_var(eq: str):
+    """Return the control variable in an ``argmax_{x}(...)`` line, or None."""
+    import re
+
+    m = re.search(r"argmax_\{([^}]+)\}", eq)
+    return m.group(1).strip() if m else None
+
+
+def desugar_kernel_policy(equations: dict) -> dict:
+    """
+    Return a kernel/policy two-block view of a stage's parsed equations.
+
+    - The new two-block surface (`cntn_to_dcsn` / `dcsn_to_arvl` evaluation
+      blocks + a separate `policy` block) passes through unchanged.
+    - The legacy single-builder surface (`cntn_to_dcsn_opr` / `*_builder` with a
+      `Bellman: ... = max_{c}(...)` line) is desugared: the `max` is lifted out
+      of the value line into a synthesised `policy` block (`argmax: c =
+      argmax_{c}(...)`), the value/marginal field equations become the
+      evaluation block, and the policy-construction lines (`InvEuler`, …) move to
+      the `policy` block.
+
+    The transform is denotationally identical to the authored model — the `max`
+    is never dropped — and is idempotent on the two-block form.
+
+    Parameters
+    ----------
+    equations : dict
+        The parsed ``stage.equations`` dict (block_name → sub-block dict | list).
+
+    Returns
+    -------
+    dict
+        A new dict in canonical kernel/policy form. Non-backward blocks
+        (transitions, etc.) and an existing `policy` block are carried through.
+    """
+    view = {}
+    policy = {}
+
+    for block_name, body in equations.items():
+        canonical = _LEGACY_BACKWARD_BLOCKS.get(block_name)
+
+        # New `policy` block authored directly — carry its sub-keys through.
+        if block_name == "policy":
+            if isinstance(body, dict):
+                for role, eqs in body.items():
+                    policy[role] = eqs
+            continue
+
+        # Not a backward block (transition, new evaluation block, etc.) — pass
+        # through unchanged.
+        if canonical is None:
+            view[block_name] = body
+            continue
+
+        # Legacy backward builder: split into evaluation block + policy lines.
+        if not isinstance(body, dict):
+            # Single-equation backward block (no sub-labels) — keep as-is under
+            # the canonical name.
+            view[canonical] = body
+            continue
+
+        evalblk = view.setdefault(canonical, {})
+        for sub_label, eqs in body.items():
+            if sub_label in _EVAL_VALUE_LABELS:
+                lifted_value = []
+                # Pre-scan: controls for which the author already wrote an
+                # explicit argmax line, so a lifted `max` does not duplicate it
+                # (independent of line order within the block).
+                authored_argmax_vars = set()
+                for eq in eqs:
+                    if "argmax_{" in eq:
+                        amv = _re_argmax_var(eq)
+                        if amv is not None:
+                            authored_argmax_vars.add(amv)
+                for eq in eqs:
+                    # An author-written `argmax_{x}(...)` line is policy
+                    # selection, not an evaluation field equation — route it to
+                    # the policy block and record the variable so we do not
+                    # synthesise a duplicate from a lifted `max`.
+                    if "argmax_{" in eq:
+                        policy.setdefault("argmax", []).append(eq)
+                        continue
+                    parts = _extract_max(eq)
+                    if parts is None:
+                        lifted_value.append(eq)
+                    else:
+                        lhs, var, inner = parts
+                        # evaluation: the inner objective, no max
+                        lifted_value.append(f"{lhs} = {inner}")
+                        # policy: the derived argmax selection — only if the
+                        # author has not already written one for this control.
+                        if var not in authored_argmax_vars:
+                            policy.setdefault("argmax", []).append(
+                                f"{var} = argmax_{{{var}}}({inner})"
+                            )
+                            authored_argmax_vars.add(var)
+                evalblk["value"] = lifted_value
+            elif sub_label in _EVAL_MARGINAL_LABELS:
+                evalblk["marginal"] = eqs
+            else:
+                # policy-construction lines (InvEuler, EGM regrid, envelope, …)
+                policy[sub_label] = eqs
+
+    if policy:
+        view["policy"] = policy
+
+    return view
+
+
 def get_address(data, address, default=None):
 
     if isinstance(address, list):
