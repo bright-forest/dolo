@@ -54,7 +54,9 @@ def extract_stage_targets(stage) -> List[str]:
     if not equations:
         return targets
 
+    block_labels = []
     for label, value in equations.items():
+        block_labels.append(label)
         targets.append(label)
 
         if isinstance(value, dict):
@@ -66,6 +68,34 @@ def extract_stage_targets(stage) -> List[str]:
             forward_builder = label.replace('_transition', '_builder')
             if forward_builder not in targets:
                 targets.append(forward_builder)
+
+    # Implied kernel/policy method-bearing nodes (spec 0.3 / spec 0.1d.1), which
+    # are not themselves equation labels:
+    #   * `evaluate` — the evaluation operator that lowers the value field and
+    #     evaluates the selected policy — is implied by any backward evaluation
+    #     block or a `policy` block;
+    #   * `upper_env` — the optional upper-envelope operator that feeds
+    #     `evaluate` (resolving the EGM value correspondence) — is an optional
+    #     node of the policy/selection layer, implied whenever a `policy` block
+    #     is present (a method only attaches when the model actually declares
+    #     one; a policy with no envelope simply never targets it).
+    if any(b in block_labels for b in ('cntn_to_dcsn', 'dcsn_to_arvl')) or 'policy' in block_labels:
+        if 'evaluate' not in targets:
+            targets.append('evaluate')
+    if 'policy' in block_labels and 'upper_env' not in targets:
+        targets.append('upper_env')
+
+    # Declared exogenous shocks are valid targets for shock-discretisation
+    # methodization (spec 0.1d.1 §3: shock_discretisation attaches to the shock
+    # declaration at load time, distinct from the `E_{shock}` expectation node).
+    try:
+        shock_symbols = dict(stage.symbols).get('exogenous') or []
+    except Exception:
+        shock_symbols = []
+    for shock in shock_symbols:
+        s = str(shock)
+        if s not in targets:
+            targets.append(s)
 
     return targets
 

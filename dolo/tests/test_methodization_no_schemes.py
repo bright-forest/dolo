@@ -357,3 +357,69 @@ methods:
         block = methodized.methods["E_y"]["schemes"][0]
         assert block["method"]["__yaml_tag__"] == "gauss-hermite"
         assert block["scheme"] == "expectation"
+
+
+class TestImpliedKernelPolicyTargets:
+    """spec 0.3 / 0.1d.1: the kernel/policy method-bearing nodes that are *not*
+    equation labels — ``evaluate``, ``upper_env``, and declared exogenous shocks
+    — are recognised as valid methodization targets, so the migrated two-block
+    examples methodize under strict validation."""
+
+    STAGE_YAML = """name: implied_targets_stage
+symbols:
+  exogenous: [y]
+  states: [m]
+  controls: [c]
+  poststates: [a]
+  values: [V]
+  parameters: [beta, gamma, r]
+equations:
+  arvl_to_dcsn_transition: |
+    m = r * a[<] + y
+  dcsn_to_cntn_transition: |
+    a = m - c
+  cntn_to_dcsn:
+    value: |
+      V = c**(1 - gamma) / (1 - gamma) + beta * V[>]
+    marginal: |
+      dV = c**(-gamma)
+  policy:
+    argmax: |
+      c = argmax_{c}(V)
+    InvEuler: |
+      c[>] = (beta * dV[>])**(-1 / gamma)
+"""
+
+    def _stage(self):
+        import yaml
+        from dolo.compiler.model import SymbolicModel
+        return SymbolicModel(yaml.compose(self.STAGE_YAML))
+
+    def test_evaluate_implied(self):
+        from dolo.compiler.methodization import extract_stage_targets
+        assert "evaluate" in extract_stage_targets(self._stage())
+
+    def test_upper_env_implied_by_policy_block(self):
+        from dolo.compiler.methodization import extract_stage_targets
+        assert "upper_env" in extract_stage_targets(self._stage())
+
+    def test_declared_shock_is_a_target(self):
+        from dolo.compiler.methodization import extract_stage_targets
+        assert "y" in extract_stage_targets(self._stage())
+
+    def test_strict_methodize_accepts_the_new_targets(self, temp_file):
+        from dolo.compiler.stage_factory.methodize import methodize
+        method_yaml = (
+            "methods:\n"
+            "  - on: policy\n"
+            "    method: !egm\n"
+            "  - on: evaluate\n"
+            "    method: !Cartesian\n"
+            "  - on: upper_env\n"
+            "    method: !FUES\n"
+            "  - on: y\n"
+        )
+        # Must not raise "Unknown methodization target" under strict validation.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            methodize(self._stage(), temp_file(method_yaml, suffix=".yml"), strict=True)
