@@ -19,3 +19,4 @@ setup.py
 # Added by CDC, 20250127
 .specstory/*
 .DS_Store
+.cursor*

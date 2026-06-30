@@ -16,9 +16,28 @@ def egm(
     maxit=1000,
     grid=None,
     dp=None,
+    return_internals: bool = False,
 ):
     """
-    a_grid: (numpy-array) vector of points used to discretize poststates; must be increasing
+    Endogenous Grid Method solver.
+
+    Args:
+        model: compiled Dolo Model (dtcc type with EGM blocks)
+        dr0: initial decision rule (callable(i, s) -> controls, or None)
+        verbose: print iteration progress
+        details: (unused, kept for API compat)
+        a_grid: (numpy-array) vector of points used to discretize poststates; must be increasing
+        η_tol: convergence tolerance on endogenous grid
+        maxit: maximum number of iterations
+        grid: pre-discretized grid (optional; avoids re-discretizing)
+        dp: pre-discretized process (optional; avoids re-discretizing)
+        return_internals: if True, return (EGMResult, internals_dict) where
+            internals_dict contains 'sa0', 'xa0', 'z' — the raw endogenous-grid
+            arrays from the last iteration.  These can be passed to a subsequent
+            egm() call via dr0_internals to avoid cubic-resampling error.
+
+    Returns:
+        EGMResult (or (EGMResult, dict) if return_internals=True)
     """
 
     assert len(model.symbols["states"]) == 1
@@ -107,7 +126,6 @@ def egm(
                 w = dp.iweight(i_m, i_M)
                 M = dp.inode(i_m, i_M)
                 S = gt(m, a, M, p)
-                print(it, i_m, i_M)
                 X = drfut(i_M, S)
                 z[i_m, :, :] += w * h(M, S, X, p)
             xa[i_m, :, :] = τ(m, a, z[i_m, :, :], p)
@@ -137,4 +155,49 @@ def egm(
 
     sol = EGMResult(mdr, it, dp, (η < η_tol), η_tol, η)
 
+    if return_internals:
+        internals = {
+            "sa0": sa0.copy(),
+            "xa0": xa0.copy(),
+            "z": z.copy(),
+        }
+        return sol, internals
+
     return sol
+
+
+def make_egm_dr0_from_internals(internals, dp, funs, p, iid_process):
+    """
+    Build a dr0 callable from raw EGM internals (sa0, xa0).
+
+    This produces the same linear-interpolation decision rule that egm()
+    uses between its internal iterations — avoiding the cubic-resampling
+    error that comes from passing sol.dr between separate egm() calls.
+
+    Args:
+        internals: dict with 'sa0' and 'xa0' from egm(return_internals=True)
+        dp: discretized process
+        funs: model.__original_gufunctions__
+        p: parameter vector
+        iid_process: bool
+
+    Returns:
+        callable(i, ss) -> controls
+    """
+    sa0 = internals["sa0"]
+    xa0 = internals["xa0"]
+    lb = funs["arbitrage_lb"]
+    ub = funs["arbitrage_ub"]
+
+    def drfut(i, ss):
+        if iid_process:
+            i = 0
+        m = dp.node(i)
+        l_ = lb(m, ss, p)
+        u_ = ub(m, ss, p)
+        x = eval_linear((sa0[i, :, 0],), xa0[i, :, 0], ss)[:, None]
+        x = np.minimum(x, u_)
+        x = np.maximum(x, l_)
+        return x
+
+    return drfut

@@ -1,20 +1,27 @@
-import dolang
+"""dolo: YAML model specification and solution for dynamic economics.
 
+Lazy imports: heavy submodules (algos, numeric, compiler.model_import)
+are imported on first access, not at package init. This avoids pulling in
+sympy, guvectorize, and 400+ modules when only dolo.compiler.calibration
+is needed (the common case for FUES/kikku estimation).
+"""
+
+# Always available (lightweight):
 from dolo.config import *
 
-import dolo.compiler.objects
-import dolo.numeric.processes
-import dolo.numeric.distribution
+# Lazy accessors — imported on first use:
+def yaml_import(*args, **kwargs):
+    from dolo.compiler.model_import import yaml_import as _yi
+    return _yi(*args, **kwargs)
 
-# import dolo.numeric.grids
-# del dolo.compiler.objects
-# del dolo.numeric.processes
-# del dolo.numeric.distribution
-# del dolo.numeric.grids
+def pcat(*args, **kwargs):
+    from dolo.misc.display import pcat as _p
+    return _p(*args, **kwargs)
 
-from dolo.compiler.model_import import yaml_import
-from dolo.misc.display import pcat
-from dolo.misc.groot import groot
-from dolo.misc.dprint import dprint
+def groot(*args, **kwargs):
+    from dolo.misc.groot import groot as _g
+    return _g(*args, **kwargs)
 
-from dolo.algos.commands import *
+def dprint(*args, **kwargs):
+    from dolo.misc.dprint import dprint as _d
+    return _d(*args, **kwargs)

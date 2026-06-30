@@ -4,480 +4,33 @@ from dolang.symbolic import str_expression
 
 import copy
 
-
-class SymbolicModel:
-    def __init__(self, data):
-
-        self.data = data
-
-    @property
-    def symbols(self):
-
-        if self.__symbols__ is None:
-
-            from .misc import LoosyDict, equivalent_symbols
-            from dolang.symbolic import remove_timing, parse_string, str_expression
-
-            symbols = LoosyDict(equivalences=equivalent_symbols)
-            for sg in self.data["symbols"].keys():
-                symbols[sg] = [s.value for s in self.data["symbols"][sg]]
-
-            self.__symbols__ = symbols
-
-            # the following call adds auxiliaries (tricky, isn't it?)
-            self.definitions
-
-        return self.__symbols__
-
-    @property
-    def variables(self):
-        if self.__variables__ is None:
-
-            self.__variables__ = sum(
-                [self.symbols[e] for e in self.symbols.keys() if e != "parameters"], []
-            )
-
-        return self.__variables__
-
-    @property
-    def equations(self):
-        import yaml.nodes
-
-        if self.__equations__ is None:
-
-            vars = self.variables + [*self.definitions.keys()]
-
-            d = dict()
-            for g, v in self.data["equations"].items():
-
-                # new style
-                if isinstance(v, yaml.nodes.ScalarNode):
-                    assert v.style == "|"
-                    if g in ("arbitrage",):
-                        start = "complementarity_block"
-                    else:
-                        start = "assignment_block"
-                    eqs = parse_string(v, start=start)
-                    eqs = sanitize(eqs, variables=vars)
-                    eq_list = eqs.children
-                # old style
-                else:
-                    eq_list = []
-                    for eq_string in v:
-                        start = "equation"  # it should be assignment
-                        eq = parse_string(eq_string, start=start)
-                        eq = sanitize(eq, variables=vars)
-                        eq_list.append(eq)
-
-                if g in ("arbitrage",):
-                    ll = []  # List[str]
-                    ll_lb = []  # List[str]
-                    ll_ub = []  # List[str]
-                    with_complementarity = False
-                    for i, eq in enumerate(eq_list):
-                        if eq.data == "double_complementarity":
-                            v = eq.children[1].children[1].children[0].children[0].value
-                            t = int(
-                                eq.children[1].children[1].children[1].children[0].value
-                            )
-                            expected = (
-                                self.symbols["controls"][i],
-                                0,
-                            )  # TODO raise nice error message
-                            if (v, t) != expected:
-                                raise Exception(
-                                    f"Incorrect variable in complementarity: expected {expected}. Found {(v,t)}"
-                                )
-                            ll_lb.append(str_expression(eq.children[1].children[0]))
-                            ll_ub.append(str_expression(eq.children[1].children[2]))
-                            eq = eq.children[0]
-                            with_complementarity = True
-                        else:
-                            ll_lb.append("-inf")
-                            ll_ub.append("inf")
-                        from dolang.symbolic import list_symbols
-
-                        # syms = list_symbols(eq)
-                        ll.append(str_expression(eq))
-                    d[g] = ll
-                    if with_complementarity:
-                        d[g + "_lb"] = ll_lb
-                        d[g + "_ub"] = ll_ub
-                else:
-                    # TODO: we should check here that equations are well specified
-                    d[g] = [str_expression(e) for e in eq_list]
-
-            # if "controls_lb" not in d:
-            #     for ind, g in enumerate(("controls_lb", "controls_ub")):
-            #         eqs = []
-            #         for i, eq in enumerate(d['arbitrage']):
-            #             if "⟂" not in eq:
-            #                 if ind == 0:
-            #                     eq = "-inf"
-            #                 else:
-            #                     eq = "inf"
-            #             else:
-            #                 comp = eq.split("⟂")[1].strip()
-            #                 v = self.symbols["controls"][i]
-            #                 eq = decode_complementarity(comp, v+"[t]")[ind]
-            #             eqs.append(eq)
-            #         d[g] = eqs
-
-            self.__equations__ = d
-
-        return self.__equations__
-
-    @property
-    def definitions(self):
-
-        from yaml import ScalarNode
-
-        if self.__definitions__ is None:
-
-            # at this stage, basic_symbols doesn't contain auxiliaries
-            basic_symbols = self.symbols
-            vars = sum(
-                [basic_symbols[k] for k in basic_symbols.keys() if k != "parameters"],
-                [],
-            )
-
-            # # auxiliaries = [remove_timing(parse_string(k)) for k in self.data.get('definitions', {})]
-            # # auxiliaries = [str_expression(e) for e in auxiliaries]
-            # # symbols['auxiliaries'] = auxiliaries
-
-            if "definitions" not in self.data:
-                self.__definitions__ = {}
-                # self.__symbols__['auxiliaries'] = []
-
-            elif isinstance(self.data["definitions"], ScalarNode):
-
-                definitions = {}
-
-                # new-style
-                from lark import Token
-
-                def_block_tree = parse_string(
-                    self.data["definitions"], start="assignment_block"
-                )
-                def_block_tree = sanitize(
-                    def_block_tree
-                )  # just to replace (v,) by (v,0) # TODO: remove
-
-                auxiliaries = []
-                for eq_tree in def_block_tree.children:
-                    lhs, rhs = eq_tree.children
-                    tok_name: Token = lhs.children[0].children[0]
-                    tok_date: Token = lhs.children[1].children[0]
-                    name = tok_name.value
-                    date = int(tok_date.value)
-                    if name in vars:
-                        raise Exception(
-                            f"definitions:{tok_name.line}:{tok_name.column}: Auxiliary variable '{name}'' already defined."
-                        )
-                    if date != 0:
-                        raise Exception(
-                            f"definitions:{tok_name.line}:{tok_name.column}: Auxiliary variable '{name}' must be defined at date 't'."
-                        )
-                    # here we could check some stuff
-                    from dolang import list_symbols
-
-                    syms = list_symbols(rhs)
-                    for p in syms.parameters:
-                        if p in vars:
-                            raise Exception(
-                                f"definitions:{tok_name.line}: Symbol '{p}' is defined as a variable. Can't appear as a parameter."
-                            )
-                        if p not in self.symbols["parameters"]:
-                            raise Exception(
-                                f"definitions:{tok_name.line}: Paremeter '{p}' must be defined as a model symbol."
-                            )
-                    for v in syms.variables:
-                        if v[0] not in vars:
-                            raise Exception(
-                                f"definitions:{tok_name.line}: Variable '{v[0]}[t]' is not defined."
-                            )
-                    auxiliaries.append(name)
-                    vars.append(name)
-
-                    definitions[str_expression(lhs)] = str_expression(rhs)
-
-                self.__symbols__["auxiliaries"] = auxiliaries
-                self.__definitions__ = definitions
-
-            else:
-
-                # old style
-                from dolang.symbolic import remove_timing
-
-                auxiliaries = [
-                    remove_timing(parse_string(k))
-                    for k in self.data.get("definitions", {})
-                ]
-                auxiliaries = [str_expression(e) for e in auxiliaries]
-                self.__symbols__["auxiliaries"] = auxiliaries
-                vars = self.variables
-                auxs = []
-
-                definitions = self.data["definitions"]
-                d = dict()
-                for i in range(len(definitions.value)):
-
-                    kk = definitions.value[i][0]
-                    if self.__compat__:
-                        k = parse_string(kk.value)
-                        if k.data == "symbol":
-                            # TODO: warn that definitions should be timed
-                            from dolang.grammar import create_variable
-
-                            k = create_variable(k.children[0].value, 0)
-                    else:
-                        k = parse_string(kk.value, start="variable")
-                    k = sanitize(k, variables=vars)
-
-                    assert k.children[1].children[0].value == "0"
-
-                    vv = definitions.value[i][1]
-                    v = parse_string(vv)
-                    v = sanitize(v, variables=vars)
-                    v = str_expression(v)
-
-                    key = str_expression(k)
-                    vars.append(key)
-                    d[key] = v
-                    auxs.append(remove_timing(key))
-
-                self.__symbols__["auxiliaries"] = auxs
-                self.__definitions__ = d
-
-        return self.__definitions__
-
-    @property
-    def name(self):
-        try:
-            return self.data["name"].value
-        except Exception as e:
-            return "Anonymous"
-
-    @property
-    def filename(self):
-        try:
-            return self.data["filename"].value
-        except Exception as e:
-            return "<string>"
-
-    @property
-    def infos(self):
-        infos = {
-            "name": self.name,
-            "filename": self.filename,
-            "type": "dtcc",
-        }
-        return infos
-
-    @property
-    def options(self):
-        return self.data["options"]
-
-    def get_calibration(self):
-
-        # if self.__calibration__ is None:
-
-        from dolang.symbolic import remove_timing
-
-        import copy
-
-        symbols = self.symbols
-        calibration = dict()
-        for k, v in self.data.get("calibration", {}).items():
-            if v.tag == "tag:yaml.org,2002:str":
-
-                expr = parse_string(v)
-                expr = remove_timing(expr)
-                expr = str_expression(expr)
-            else:
-                expr = float(v.value)
-            kk = remove_timing(parse_string(k))
-            kk = str_expression(kk)
-
-            calibration[kk] = expr
-
-        definitions = self.definitions
-
-        initial_values = {
-            "exogenous": 0,
-            "expectations": 0,
-            "values": 0,
-            "controls": float("nan"),
-            "states": float("nan"),
-        }
-
-        # variables defined by a model equation default to using these definitions
-        initialized_from_model = {
-            "values": "value",
-            "expectations": "expectation",
-            "direct_responses": "direct_response",
-        }
-        for k, v in definitions.items():
-            kk = remove_timing(k)
-            if kk not in calibration:
-                if isinstance(v, str):
-                    vv = remove_timing(v)
-                else:
-                    vv = v
-                calibration[kk] = vv
-
-        for symbol_group in symbols:
-            if symbol_group not in initialized_from_model.keys():
-                if symbol_group in initial_values:
-                    default = initial_values[symbol_group]
-                else:
-                    default = float("nan")
-                for s in symbols[symbol_group]:
-                    if s not in calibration:
-                        calibration[s] = default
-
-        from dolang.triangular_solver import solve_triangular_system
-
-        return solve_triangular_system(calibration)
-
-    #     self.__calibration__ =  solve_triangular_system(calibration)
-
-    # return self.__calibration__
-
-    def get_domain(self):
-
-        calibration = self.get_calibration()
-        states = self.symbols["states"]
-
-        sdomain = self.data.get("domain", {})
-        for k in sdomain.keys():
-            if k not in states:
-                sdomain.pop(k)
-
-        # backward compatibility
-        if len(sdomain) == 0 and len(states) > 0:
-            try:
-                import warnings
-
-                min = get_address(self.data, ["options:grid:a", "options:grid:min"])
-                max = get_address(self.data, ["options:grid:b", "options:grid:max"])
-                for i, s in enumerate(states):
-                    sdomain[s] = [min[i], max[i]]
-                # shall we raise a warning for deprecated syntax ?
-            except Exception as e:
-                pass
-
-        if len(sdomain) == 0:
-            return None
-
-        if len(sdomain) < len(states):
-            missing = [s for s in states if s not in sdomain]
-            raise Exception(
-                "Missing domain for states: {}.".format(str.join(", ", missing))
-            )
-
-        from dolo.compiler.objects import CartesianDomain
-        from dolang.language import eval_data
-
-        sdomain = eval_data(sdomain, calibration)
-
-        domain = CartesianDomain(**sdomain)
-
-        return domain
-
-    def get_exogenous(self):
-
-        if "exogenous" not in self.data:
-            return {}
-
-        exo = self.data["exogenous"]
-        calibration = self.get_calibration()
-        from dolang.language import eval_data
-
-        exogenous = eval_data(exo, calibration)
-
-        from dolo.numeric.processes import ProductProcess, Process
-
-        if isinstance(exogenous, Process):
-            # old style
-            return exogenous
-        elif isinstance(exo, list):
-            # old style (2)
-            return ProductProcess(*exogenous)
-        else:
-            # new style
-            syms = self.symbols["exogenous"]
-            # first we check that shocks are defined in the right order
-            ssyms = []
-            for k in exo.keys():
-                vars = [v.strip() for v in k.split(",")]
-                ssyms.append(vars)
-            ssyms = tuple(sum(ssyms, []))
-            if tuple(syms) != ssyms:
-                from dolang.language import ModelError
-
-                lc = exo.lc
-                raise ModelError(
-                    f"{lc.line}:{lc.col}: 'exogenous' section. Shocks specification must match declaration order. Found {ssyms}. Expected{tuple(syms)}"
-                )
-
-            return ProductProcess(*exogenous.values())
-
-    @property
-    def endo_grid(self):
-
-        # determine bounds:
-        domain = self.get_domain()
-        min = domain.min
-        max = domain.max
-
-        options = self.data.get("options", {})
-
-        # determine grid_type
-        grid_type = get_type(options.get("grid"))
-        if grid_type is None:
-            grid_type = get_address(
-                self.data, ["options:grid:type", "options:grid_type"]
-            )
-        if grid_type is None:
-            raise Exception('Missing grid geometry ("options:grid:type")')
-
-        args = {"min": min, "max": max}
-        if grid_type.lower() in ("cartesian", "cartesiangrid"):
-            from dolo.numeric.grids import UniformCartesianGrid
-
-            orders = get_address(self.data, ["options:grid:n", "options:grid:orders"])
-            if orders is None:
-                orders = [20] * len(min)
-            grid = UniformCartesianGrid(min=min, max=max, n=orders)
-        elif grid_type.lower() in ("nonuniformcartesian", "nonuniformcartesiangrid"):
-            from dolang.language import eval_data
-            from dolo.numeric.grids import NonUniformCartesianGrid
-
-            calibration = self.get_calibration()
-            nodes = [eval_data(e, calibration) for e in self.data["options"]["grid"]]
-            # each element of nodes should be a vector
-            return NonUniformCartesianGrid(nodes)
-        elif grid_type.lower() in ("smolyak", "smolyakgrid"):
-            from dolo.numeric.grids import SmolyakGrid
-
-            mu = get_address(self.data, ["options:grid:mu"])
-            if mu is None:
-                mu = 2
-            grid = SmolyakGrid(min=min, max=max, mu=mu)
-        else:
-            raise Exception("Unknown grid type.")
-
-        return grid
+from dolang.yaml_nodes import (
+    mapping_get,
+    mapping_get_required,
+    mapping_has,
+    mapping_items,
+    mapping_keys,
+    sequence_values,
+    scalar_value,
+)
+
+
+from .stage_factory.symbolic import SymbolicModel  # noqa: F401 — re-export (spec 0.1r)
 
 
 def get_type(d):
+    if d is None:
+        return None
     try:
         s = d.tag
         return s.strip("!")
-    except:
-        v = d.get("type")
-        return v
+    except Exception:
+        pass
+    try:
+        v = mapping_get(d, "type")
+        return scalar_value(v)
+    except Exception:
+        return None
 
 
 def get_address(data, address, default=None):
@@ -491,11 +44,15 @@ def get_address(data, address, default=None):
             return default
     fields = str.split(address, ":")
     while len(fields) > 0:
-        data = data.get(fields[0])
+        data = mapping_get(data, fields[0])
         fields = fields[1:]
         if data is None:
             return default
-    return eval_data(data)
+    try:
+        return eval_data(data)
+    except Exception:
+        # If `data` is already a python object (not a YAML node), just return it.
+        return data
 
 
 import re
@@ -530,11 +87,11 @@ def decode_complementarity(comp, control):
 class Model(SymbolicModel):
     """Model Object"""
 
-    def __init__(self, data, check=True, compat=True):
+    def __init__(self, data, check=True, compat=True, filename=None, compile_functions=True):
 
-        self.__compat__ = True
+        self.__compat__ = compat
 
-        super().__init__(data)
+        super().__init__(data, filename=filename)
 
         self.model_type = "dtcc"
         self.__functions__ = None
@@ -547,8 +104,9 @@ class Model(SymbolicModel):
             self.calibration
             self.domain
             self.exogenous
-            self.x_bounds
-            self.functions
+            if compile_functions:
+                self.x_bounds
+                self.functions
 
     def set_changed(self, all=False):
         self.__domain__ = None
@@ -561,10 +119,39 @@ class Model(SymbolicModel):
             self.__equations__ = None
 
     def set_calibration(self, *pargs, **kwargs):
-        if len(pargs) == 1:
+        if len(pargs) == 1 and not kwargs:
             self.set_calibration(**pargs[0])
+            return
         self.set_changed()
-        self.data["calibration"].update(kwargs)
+
+        from dolang.yaml_nodes import mapping_get, mapping_set, is_mapping_node
+        from yaml.nodes import ScalarNode
+
+        calib_node = mapping_get(self.data, "calibration")
+
+        if calib_node is None:
+            # No calibration block yet — create one
+            from yaml.nodes import MappingNode
+            calib_node = MappingNode(
+                tag="tag:yaml.org,2002:map", value=[]
+            )
+            mapping_set(self.data, "calibration", calib_node)
+
+        if is_mapping_node(calib_node):
+            for k, v in kwargs.items():
+                # Convert value to a ScalarNode
+                if isinstance(v, str):
+                    val_node = ScalarNode(
+                        tag="tag:yaml.org,2002:str", value=v
+                    )
+                else:
+                    val_node = ScalarNode(
+                        tag="tag:yaml.org,2002:float", value=str(v)
+                    )
+                mapping_set(calib_node, k, val_node)
+        else:
+            # Fallback for dict-based data (shouldn't normally happen)
+            calib_node.update(kwargs)
 
     @property
     def calibration(self):
